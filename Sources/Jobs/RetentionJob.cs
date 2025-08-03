@@ -1,10 +1,10 @@
 ﻿using Quartz;
 using System.Globalization;
+using Microsoft.EntityFrameworkCore;
 using Mattermost.RealRetention.Models;
 using EasyExtensions.Quartz.Attributes;
 using Mattermost.RealRetention.Services;
 using Mattermost.RealRetention.Database;
-using Microsoft.EntityFrameworkCore;
 
 namespace Mattermost.RealRetention.Jobs
 {
@@ -59,9 +59,8 @@ namespace Mattermost.RealRetention.Jobs
                 folder
             );
 
-            _logger.LogInformation("Preloading database files and posts for performance optimization...");
+            _logger.LogInformation("Preloading database files for performance optimization...");
             await _dbContext.Files.ToListAsync(context.CancellationToken);
-            await _dbContext.Posts.ToListAsync(context.CancellationToken);
 
             foreach (var file in files)
             {
