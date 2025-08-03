@@ -59,8 +59,12 @@ namespace Mattermost.RealRetention.Jobs
                 folder
             );
 
-            _logger.LogInformation("Preloading database files for performance optimization...");
-            await _dbContext.Files.ToListAsync(context.CancellationToken);
+            _logger.LogInformation("Preloading database files and posts for performance optimization...");
+            HashSet<string> activePosts = [.. _dbContext.Posts
+                .AsNoTracking()
+                .Where(p => p.DeletedAt == 0)
+                .Select(p => p.Id.ToString())];
+            await _dbContext.Files.ToListAsync();
 
             foreach (var file in files)
             {
@@ -87,10 +91,7 @@ namespace Mattermost.RealRetention.Jobs
                     report.OnFileProcessed(relativePath, file.Length, deleted: true, "File not found in database.");
                     continue;
                 }
-                var postExists = _dbContext.Posts.Any(p =>
-                    p.Id == fileInfo.PostId && p.DeletedAt == 0
-                );
-                if (postExists && fileInfo.DeletedAt == 0)
+                if (activePosts.Contains(fileInfo.PostId) && fileInfo.DeletedAt == 0)
                 {
                     _logger.LogInformation(
                         "File {fileName} with ID {fileId} is associated with an active post, skipping deletion.",
