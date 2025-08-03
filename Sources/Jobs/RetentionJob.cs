@@ -14,6 +14,7 @@ namespace Mattermost.RealRetention.Jobs
         IConfiguration configuration, ReportService _reports) : IJob
     {
         private const int defaultDelay = 0;
+        private const int preloadFileCount = 10000;
         private const string folder = "/mattermost/data/";
 
         public async Task Execute(IJobExecutionContext context)
@@ -65,13 +66,16 @@ namespace Mattermost.RealRetention.Jobs
                 .AsNoTracking()
                 .Where(p => p.DeletedAt == 0)
                 .Select(p => p.Id)
-                .ToHashSetAsync();
-            _logger.LogInformation("Loaded {count} active post identifiers. Preloading database files...", activePosts.Count);
-            await _dbContext.Files.ToListAsync();
+                .ToHashSetAsync(context.CancellationToken);
+
+            _logger.LogInformation("Preloading database files for performance optimization...");
+            await _dbContext.Files
+                .Take(preloadFileCount)
+                .LoadAsync(context.CancellationToken);
 
             foreach (var file in files)
             {
-                await Task.Delay(delay);
+                await Task.Delay(delay, context.CancellationToken);
                 string relativePath = file.FullName.Replace(folder, string.Empty);
                 string sanitizedPath = Sanitize(relativePath);
                 _logger.LogDebug("Processing file {fileName}.", relativePath);
@@ -119,7 +123,7 @@ namespace Mattermost.RealRetention.Jobs
                     else
                     {
                         _dbContext.Files.Remove(fileInfo);
-                        await _dbContext.SaveChangesAsync();
+                        await _dbContext.SaveChangesAsync(context.CancellationToken);
                         file.Delete();
                     }
                     report.OnFileProcessed(relativePath, fileLength, deleted: true, $"File {result}.");
