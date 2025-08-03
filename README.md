@@ -20,6 +20,7 @@ The service automatically finds and removes files that are no longer linked to a
 - 🐳 **Docker Ready**: Ready-to-use Docker image for quick deployment
 - ⚡ **High performance**: Built on .NET 9.0 with optimization
 - 🔒 **Safe database operations**: Removes both file records from database and physical files from filesystem
+- 🔌 **REST API**: HTTP endpoints for manual job triggering and status monitoring
 
 ## 🏗️ Architecture
 
@@ -36,6 +37,13 @@ The project is built on a modern technology stack:
 ```
 Sources/
 ├── Program.cs                    # Application entry point
+├── Controllers/
+│   └── JobController.cs         # REST API endpoints
+├── Services/
+│   └── ReportService.cs         # Retention reports management
+├── Models/
+│   ├── RetentionReport.cs       # Report data model
+│   └── RetentionReportFileInfo.cs # File processing details
 ├── Database/
 │   ├── AppDbContext.cs          # Entity Framework context
 │   └── Models/
@@ -56,6 +64,10 @@ services:
   mattermost-real-retention:
     image: bvdcode/mattermost-real-retention:latest
     restart: always
+    # Optional: Expose API endpoints for manual control and monitoring
+    # Comment out the ports section if you don't need external API access
+    ports:
+      - "8080:8080"  # API endpoints (optional)
     environment:
       - PostgresHost=postgres
       - PostgresPort=5432
@@ -81,6 +93,7 @@ docker-compose up -d
 docker run -d \
   --name mattermost-retention \
   --restart always \
+  -p 8080:8080 \  # Optional: Only if you need API access
   -e PostgresHost=your_postgres_host \
   -e PostgresPort=5432 \
   -e PostgresUser=mattermost \
@@ -90,6 +103,8 @@ docker run -d \
   -v /path/to/mattermost/data:/mattermost/data:rw \
   bvdcode/mattermost-real-retention:latest
 ```
+
+> **Note**: Remove the `-p 8080:8080` line if you don't need external access to the API endpoints. The service will work perfectly for automatic cleanup without exposing any ports.
 
 ## ⚙️ Configuration
 
@@ -111,6 +126,71 @@ The service uses the same PostgreSQL connection settings as your Mattermost serv
 1. The user has read permissions on `posts` and `fileinfo` tables
 2. The user has delete permissions on `fileinfo` table records (only when `DryRun=false`)
 3. The service can connect to the Mattermost database
+
+## 🔌 API Endpoints
+
+The service provides REST API endpoints for monitoring and manual control. **Note**: API access is optional - the service works automatically without exposing any ports.
+
+### When to expose API ports:
+
+- ✅ **Manual job triggering**: When you need to run cleanup on-demand
+- ✅ **Monitoring integration**: For external monitoring systems or dashboards  
+- ✅ **Testing and debugging**: During initial setup and troubleshooting
+- ✅ **Automation scripts**: If you have custom scripts that need job status
+
+### When NOT to expose API ports:
+
+- ❌ **Production environments**: If you only need automatic daily cleanup
+- ❌ **Security-sensitive deployments**: To minimize attack surface
+- ❌ **Simple setups**: When "set and forget" automatic operation is sufficient
+
+### GET /status
+
+Returns detailed reports of all retention job executions.
+
+**Response:**
+```json
+[
+  {
+    "dryRun": true,
+    "createdAt": "2025-01-15T10:30:00Z",
+    "directory": "/mattermost/data/",
+    "totalFilesCount": 1523,
+    "foldersCount": 45,
+    "processedFiles": [
+      {
+        "relativePath": "20241201/abc123/image.jpg",
+        "length": 245760,
+        "deleted": true,
+        "result": "File not found in database - deleted from filesystem"
+      }
+    ]
+  }
+]
+```
+
+**Usage:**
+```bash
+# Only works if ports are exposed
+curl http://localhost:8080/status
+```
+
+### POST /trigger
+
+Manually triggers the retention cleanup job.
+
+**Response:**
+```json
+"Job 'RetentionJob' has been triggered successfully."
+```
+
+**Usage:**
+```bash
+# Only works if ports are exposed
+curl -X POST http://localhost:8080/trigger
+```
+
+> **Note**: The trigger endpoint is useful for testing and manual cleanup runs. The job will still respect the `DryRun` setting.
 
 ## 🔧 How It Works
 
@@ -143,6 +223,15 @@ The service deletes files in the following cases:
 - 🗃️ Cleans both filesystem and database records for consistency
 
 ## 📊 Monitoring and Logging
+
+### API Monitoring
+
+Use the `/status` endpoint to programmatically monitor retention job executions:
+
+- **Job history**: View all completed retention jobs with detailed statistics
+- **File details**: See exactly which files were processed and their outcomes  
+- **Performance metrics**: Track total files processed, execution time, and cleanup efficiency
+- **Dry run validation**: Review what would be deleted before setting `DryRun=false`
 
 ### Log Levels
 

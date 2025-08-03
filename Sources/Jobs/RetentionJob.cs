@@ -1,21 +1,29 @@
 ﻿using Quartz;
 using System.Globalization;
+using Mattermost.Maintenance.Models;
+using Mattermost.Maintenance.Services;
 using Mattermost.Maintenance.Database;
 using EasyExtensions.Quartz.Attributes;
 
 namespace Mattermost.Maintenance.Jobs
 {
     [JobTrigger(days: 1)]
-    public class RetentionJob(AppDbContext _dbContext, ILogger<RetentionJob> _logger, IConfiguration configuration) : IJob
+    public class RetentionJob(AppDbContext _dbContext, ILogger<RetentionJob> _logger,
+        IConfiguration configuration, ReportService _reports) : IJob
     {
         private const int delay = 250; // Delay in milliseconds between file checks
         private const string folder = "/mattermost/data/";
 
         public async Task Execute(IJobExecutionContext context)
         {
+            RetentionReport report = new();
+            _reports.AddReport(report);
             bool dryRun = configuration.GetValue("DryRun", true);
+            report.CreatedAt = DateTime.UtcNow;
+            report.DryRun = dryRun;
 
             DirectoryInfo di = new(folder);
+            report.Directory = di.FullName;
             if (!di.Exists)
             {
                 throw new DirectoryNotFoundException($"The directory {folder} does not exist.");
@@ -28,10 +36,12 @@ namespace Mattermost.Maintenance.Jobs
                     && DateTime.TryParseExact(d.Name, "yyyyMMdd", null, DateTimeStyles.None, out _)
                 )
                 .ToList();
+            report.FoldersCount = dateDirectories.Count;
 
             var files = dateDirectories
                 .SelectMany(d => d.GetFiles("*", SearchOption.AllDirectories))
                 .ToArray();
+            report.TotalFilesCount = files.Length;
 
             _logger.LogInformation(
                 "Found {filesLength} files in {directoryCount} date directories in {folder}.",
@@ -62,6 +72,7 @@ namespace Mattermost.Maintenance.Jobs
                         file.Delete();
                     }
                     counter++;
+                    report.OnFileProcessed(relativePath, file.Length, deleted: true, "File not found in database.");
                     continue;
                 }
                 var postExists = _dbContext.Posts.Any(p =>
@@ -74,13 +85,14 @@ namespace Mattermost.Maintenance.Jobs
                         relativePath,
                         fileInfo.Id
                     );
+                    report.OnFileProcessed(relativePath, file.Length, deleted: false, "File is associated with an active post.");
                     continue;
                 }
                 else
                 {
                     string result = fileInfo.DeletedAt > 0
-                        ? "is marked deleted."
-                        : "is associated with a deleted post.";
+                        ? "is marked deleted"
+                        : "is associated with a deleted post";
                     _logger.LogWarning("File {fileName} with ID {fileId} {result} - deleting.", relativePath, fileInfo.Id, result);
                     if (dryRun)
                     {
@@ -92,6 +104,7 @@ namespace Mattermost.Maintenance.Jobs
                         await _dbContext.SaveChangesAsync();
                         file.Delete();
                     }
+                    report.OnFileProcessed(relativePath, file.Length, deleted: true, $"File {result}.");
                     counter++;
                 }
             }
