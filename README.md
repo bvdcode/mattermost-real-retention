@@ -4,50 +4,52 @@
 ![GitHub Release](https://img.shields.io/github/v/release/bvdcode/mattermost-real-file-retention)
 ![.NET](https://img.shields.io/badge/.NET-9.0-blue)
 
-**Безопасная автоматическая очистка файлов-сирот в Mattermost Community/Team Edition без необходимости Enterprise лицензии.**
+**Safe automatic cleanup of orphaned files in Mattermost Community/Team Edition without requiring an Enterprise license.**
 
-Сервис автоматически находит и удаляет файлы, которые больше не связаны с активными постами в Mattermost, помогая экономить дисковое пространство и поддерживать чистоту файловой системы.
+The service automatically finds and removes files that are no longer linked to active posts in Mattermost, helping save disk space and maintain a clean file system.
+
+> Please note: The `DryRun` mode is enabled by default, meaning that files will not be deleted but only logged. Change this setting to `false` in production after testing. Author is not responsible for data loss. If you have any errors or questions, please open an issue.
 
 <img width="718" height="459" alt="image" src="https://github.com/user-attachments/assets/53142610-f641-4305-8e29-872fd3d9156f" />
 
-## ✨ Особенности
+## ✨ Features
 
-- 🔄 **Автоматическая очистка**: Ежедневный запуск задачи очистки файлов-сирот
-- 🛡️ **Безопасность**: Режим "сухого прогона" (dry run) по умолчанию для тестирования
-- 📊 **Подробное логирование**: Детальная информация о процессе очистки
-- 🐳 **Docker Ready**: Готовый Docker образ для быстрого развертывания
-- ⚡ **Высокая производительность**: Построен на .NET 9.0 с оптимизацией
-- 🔒 **Безопасная работа с БД**: Только удаление записей о файлах, никаких изменений данных Mattermost
+- 🔄 **Automatic cleanup**: Daily orphaned file cleanup task execution
+- 🛡️ **Safety first**: Dry run mode enabled by default for testing
+- 📊 **Detailed logging**: Comprehensive information about the cleanup process
+- 🐳 **Docker Ready**: Ready-to-use Docker image for quick deployment
+- ⚡ **High performance**: Built on .NET 9.0 with optimization
+- 🔒 **Safe database operations**: Only removes file records, no Mattermost data changes
 
-## 🏗️ Архитектура
+## 🏗️ Architecture
 
-Проект построен на современном стеке технологий:
+The project is built on a modern technology stack:
 
-- **.NET 9.0** - Основная платформа
-- **Entity Framework Core** - ORM для работы с базой данных PostgreSQL
-- **Quartz.NET** - Планировщик задач для автоматического запуска
-- **ASP.NET Core** - Web API хост
-- **PostgreSQL** - База данных Mattermost
+- **.NET 9.0** - Main platform
+- **Entity Framework Core** - ORM for PostgreSQL database operations
+- **Quartz.NET** - Task scheduler for automatic execution
+- **ASP.NET Core** - Web API host
+- **PostgreSQL** - Mattermost database
 
-### Компоненты системы
+### System Components
 
 ```
 Sources/
-├── Program.cs                    # Точка входа приложения
+├── Program.cs                    # Application entry point
 ├── Database/
-│   ├── AppDbContext.cs          # Контекст Entity Framework
+│   ├── AppDbContext.cs          # Entity Framework context
 │   └── Models/
-│       ├── MattermostPost.cs    # Модель постов Mattermost
-│       └── MattermostFileInfo.cs # Модель файловой информации
+│       ├── MattermostPost.cs    # Mattermost posts model
+│       └── MattermostFileInfo.cs # File information model
 └── Jobs/
-    └── RetentionJob.cs          # Основная задача очистки файлов
+    └── RetentionJob.cs          # Main file cleanup job
 ```
 
-## 🚀 Быстрый старт
+## 🚀 Quick Start
 
-### Использование Docker Compose (Рекомендуется)
+### Using Docker Compose (Recommended)
 
-1. Создайте файл `docker-compose.yml`:
+1. Create a `docker-compose.yml` file:
 
 ```yaml
 services:
@@ -60,20 +62,20 @@ services:
       - PostgresUser=mattermost
       - PostgresPassword=changeme
       - PostgresDatabase=mattermost
-      - DryRun=true  # Установите false для реального удаления
+      - DryRun=true # Set to false for actual deletion
     volumes:
       - /path/to/mattermost/data:/mattermost/data:rw
     networks:
       - mattermost_network
 ```
 
-2. Запустите контейнер:
+2. Start the container:
 
 ```bash
 docker-compose up -d
 ```
 
-### Использование Docker
+### Using Docker
 
 ```bash
 docker run -d \
@@ -89,63 +91,63 @@ docker run -d \
   bvdcode/mattermost-real-retention:latest
 ```
 
-## ⚙️ Конфигурация
+## ⚙️ Configuration
 
-### Переменные окружения
+### Environment Variables
 
-| Переменная | Описание | По умолчанию | Обязательная |
-|------------|----------|--------------|--------------|
-| `PostgresHost` | Хост PostgreSQL сервера | `postgres-server` | ✅ |
-| `PostgresPort` | Порт PostgreSQL | `5432` | ❌ |
-| `PostgresUser` | Имя пользователя PostgreSQL | `mattermost_server` | ✅ |
-| `PostgresPassword` | Пароль PostgreSQL | - | ✅ |
-| `PostgresDatabase` | Имя базы данных | `mattermost` | ✅ |
-| `DryRun` | Режим тестирования (не удаляет файлы) | `true` | ❌ |
+| Variable           | Description                      | Default             | Required |
+| ------------------ | -------------------------------- | ------------------- | -------- |
+| `PostgresHost`     | PostgreSQL server host           | `postgres-server`   | ✅       |
+| `PostgresPort`     | PostgreSQL port                  | `5432`              | ❌       |
+| `PostgresUser`     | PostgreSQL username              | `mattermost_server` | ✅       |
+| `PostgresPassword` | PostgreSQL password              | -                   | ✅       |
+| `PostgresDatabase` | Database name                    | `mattermost`        | ✅       |
+| `DryRun`           | Test mode (doesn't delete files) | `true`              | ❌       |
 
-### Настройка подключения к базе данных
+### Database Connection Setup
 
-Сервис использует те же настройки подключения к PostgreSQL, что и ваш Mattermost сервер. Убедитесь, что:
+The service uses the same PostgreSQL connection settings as your Mattermost server. Ensure that:
 
-1. Пользователь имеет права на чтение таблиц `posts` и `fileinfo`
-2. Пользователь имеет права на удаление записей из таблицы `fileinfo` (только при `DryRun=false`)
-3. Сервис может подключиться к базе данных Mattermost
+1. The user has read permissions on `posts` and `fileinfo` tables
+2. The user has delete permissions on `fileinfo` table records (only when `DryRun=false`)
+3. The service can connect to the Mattermost database
 
-## 🔧 Как это работает
+## 🔧 How It Works
 
-### Алгоритм работы
+### Algorithm
 
-1. **Сканирование файлов**: Каждые 24 часа сервис сканирует директорию `/mattermost/data/`
-2. **Поиск файлов по датам**: Обрабатываются только директории в формате `YYYYMMDD`
-3. **Проверка в базе данных**: Для каждого файла проверяется:
-   - Существует ли запись в таблице `fileinfo`
-   - Связан ли файл с активным постом (не удаленным)
-   - Помечен ли сам файл как удаленный
-4. **Безопасное удаление**: Файлы-сироты удаляются как из файловой системы, так и из базы данных
+1. **File scanning**: Every 24 hours the service scans the `/mattermost/data/` directory
+2. **Date-based file search**: Only processes directories in `YYYYMMDD` format
+3. **Database verification**: For each file, checks:
+   - Does a record exist in the `fileinfo` table
+   - Is the file linked to an active post (not deleted)
+   - Is the file itself marked as deleted
+4. **Safe deletion**: Orphaned files are removed from both filesystem and database
 
-### Типы файлов для удаления
+### File Types for Deletion
 
-Сервис удаляет файлы в следующих случаях:
+The service deletes files in the following cases:
 
-- ✅ Файл не найден в таблице `fileinfo`
-- ✅ Файл связан с удаленным постом (`posts.deleteat > 0`)
-- ✅ Файл помечен как удаленный (`fileinfo.deleteat > 0`)
+- ✅ File not found in `fileinfo` table
+- ✅ File linked to a deleted post (`posts.deleteat > 0`)
+- ✅ File marked as deleted (`fileinfo.deleteat > 0`)
 
-### Безопасность
+### Safety
 
-- 🔒 Никогда не удаляет файлы, связанные с активными постами
-- 📝 Подробное логирование всех операций
-- 🧪 Режим "сухого прогона" для тестирования
-- ⏱️ Задержка 250мс между проверками файлов для снижения нагрузки
+- 🔒 Never deletes files linked to active posts
+- 📝 Detailed logging of all operations
+- 🧪 Dry run mode for testing
+- ⏱️ 250ms delay between file checks to reduce load
 
-## 📊 Мониторинг и логирование
+## 📊 Monitoring and Logging
 
-### Уровни логирования
+### Log Levels
 
-- **Information**: Общая информация о процессе
-- **Warning**: Найденные файлы-сироты
-- **Debug**: Детальная информация о каждом файле
+- **Information**: General process information
+- **Warning**: Found orphaned files
+- **Debug**: Detailed information about each file
 
-### Примеры логов
+### Log Examples
 
 ```
 [Information] Found 1523 files in 45 date directories in /mattermost/data/.
@@ -154,15 +156,15 @@ docker run -d \
 [Information] Retention job completed. 42 files deleted, 1523 files total.
 ```
 
-## 🛠️ Разработка
+## 🛠️ Development
 
-### Требования
+### Requirements
 
 - .NET 9.0 SDK
-- PostgreSQL (для тестирования)
-- Docker (опционально)
+- PostgreSQL (for testing)
+- Docker (optional)
 
-### Сборка проекта
+### Building the Project
 
 ```bash
 cd Sources
@@ -170,14 +172,14 @@ dotnet restore
 dotnet build
 ```
 
-### Запуск в режиме разработки
+### Running in Development Mode
 
 ```bash
 cd Sources
 dotnet run
 ```
 
-### Сборка Docker образа
+### Building Docker Image
 
 ```bash
 docker build -t mattermost-retention ./Sources
@@ -185,55 +187,54 @@ docker build -t mattermost-retention ./Sources
 
 ## 🔄 CI/CD
 
-Проект использует GitHub Actions для автоматической сборки и публикации Docker образов:
+The project uses GitHub Actions for automatic building and publishing of Docker images:
 
 - **Docker Hub**: `bvdcode/mattermost-real-retention`
 - **GitHub Container Registry**: `ghcr.io/bvdcode/mattermost-real-retention`
 
-Образы собираются автоматически при каждом push в ветку `main`.
+Images are built automatically on every push to the `main` branch.
 
-## 📋 Требования к системе
+## 📋 System Requirements
 
-### Минимальные требования
+### Minimum Requirements
 
-- **CPU**: 1 ядро
+- **CPU**: 1 core
 - **RAM**: 1GB
-- **Диск**: Минимум для хранения образа (~200MB)
-- **Доступ**: Чтение директории данных Mattermost
-- **Сеть**: Подключение к PostgreSQL серверу
+- **Disk**: Minimum for image storage (~200MB)
+- **Access**: Read access to Mattermost data directory
+- **Network**: Connection to PostgreSQL server
 
-### Рекомендации по развертыванию
+### Deployment Recommendations
 
-- Запускайте сервис на том же сервере, где находятся файлы Mattermost
-- Используйте сетевое хранилище если Mattermost работает в кластере
-- Настройте мониторинг логов для отслеживания работы
-- Начните с режима `DryRun=true` для оценки объема очистки
+- Run the service on the same server where Mattermost files are located
+- Use network storage if Mattermost runs in a cluster
+- Set up log monitoring to track service operation
+- Start with `DryRun=true` to assess cleanup volume
 
-## ❗ Важные замечания
+## ❗ Important Notes
 
-1. **Режим сухого прогона**: По умолчанию включен `DryRun=true` - файлы не удаляются, только логируются
-2. **Резервные копии**: Обязательно создайте резервную копию данных перед первым запуском
-3. **Тестирование**: Протестируйте сервис в режиме dry run перед продакшн использованием
-4. **Права доступа**: Убедитесь, что контейнер имеет права на чтение/запись в директории данных
+1. **Dry run mode**: Enabled by default `DryRun=true` - files are not deleted, only logged
+2. **Backups**: Always create a backup of your data before first run
+3. **Testing**: Test the service in dry run mode before production use
+4. **Permissions**: Ensure the container has read/write permissions to the data directory
 
-## 🤝 Вклад в проект
+## 🤝 Contributing
 
-Приветствуются любые вклады в проект:
+Contributions to the project are welcome:
 
-1. Fork репозиторий
-2. Создайте feature ветку
-3. Внесите изменения
-4. Создайте Pull Request
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Create a Pull Request
 
-## 📄 Лицензия
+## 📄 License
 
-Этот проект распространяется под лицензией MIT. См. файл [LICENSE](LICENSE) для деталей.
+This project is distributed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
-## 🆘 Поддержка
+## 🆘 Support
 
-Если у вас возникли вопросы или проблемы:
+If you have questions or issues:
 
-- Создайте [Issue](https://github.com/bvdcode/mattermost-real-file-retention/issues)
-- Ознакомьтесь с существующими Issues
-- Проверьте логи сервиса для диагностики
-
+- Create an [Issue](https://github.com/bvdcode/mattermost-real-file-retention/issues)
+- Check existing Issues
+- Review service logs for diagnostics
