@@ -15,6 +15,7 @@ namespace Mattermost.RealRetention.Jobs
     {
         private const int defaultDelay = 0;
         private const int preloadFileCount = 10000;
+        private const int preloadPostCount = 250000;
         private const string folder = "/mattermost/data/";
 
         public async Task Execute(IJobExecutionContext context)
@@ -65,8 +66,10 @@ namespace Mattermost.RealRetention.Jobs
             var activePosts = await _dbContext.Posts
                 .AsNoTracking()
                 .Where(p => p.DeletedAt == 0)
+                .Take(preloadPostCount)
                 .Select(p => p.Id)
                 .ToHashSetAsync(context.CancellationToken);
+            _logger.LogInformation("Preloaded {activePostsCount} active posts from the database.", activePosts.Count);
 
             _logger.LogInformation("Preloading database files for performance optimization...");
             await _dbContext.Files
