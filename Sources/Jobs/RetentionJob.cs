@@ -15,7 +15,7 @@ namespace Mattermost.RealRetention.Jobs
     {
         private const int defaultDelay = 0;
         private const int preloadFileCount = 10000;
-        private const int preloadPostCount = 250000;
+        private const int preloadPostCount = 1000000;
         private const string folder = "/mattermost/data/";
 
         public async Task Execute(IJobExecutionContext context)
