@@ -7,7 +7,7 @@
         public int FoldersCount { get; set; }
         public DateTime CreatedAt { get; set; }
         public int TotalFilesCount { get; set; }
-        public int DeletedFilesCount => ProcessedFiles.Count(f => f.Deleted);
+        public int DeletedFilesCount => ProcessedFiles.Count(f => f.IsDeleted);
         public int ProcessedFilesCount => ProcessedFiles.Count;
         public string Directory { get; set; } = string.Empty;
         public List<RetentionReportFileInfo> ProcessedFiles { get; set; } = [];
@@ -22,7 +22,7 @@
             {
                 RelativePath = relativePath,
                 Length = length,
-                Deleted = deleted,
+                IsDeleted = deleted,
                 Result = result
             });
         }
