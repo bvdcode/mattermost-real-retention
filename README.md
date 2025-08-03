@@ -1,7 +1,7 @@
 # Mattermost Real File Retention
 
 ![Docker Pulls](https://img.shields.io/docker/pulls/bvdcode/mattermost-real-retention)
-![GitHub Release](https://img.shields.io/github/v/release/bvdcode/mattermost-real-file-retention)
+![Docker Tag](https://img.shields.io/docker/v/bvdcode/mattermost-real-retention)
 ![.NET](https://img.shields.io/badge/.NET-9.0-blue)
 
 **Safe automatic cleanup of orphaned files in Mattermost Community/Team Edition without requiring an Enterprise license.**
