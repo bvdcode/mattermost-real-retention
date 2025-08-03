@@ -1,11 +1,11 @@
 using Quartz;
 using Microsoft.AspNetCore.Mvc;
-using Mattermost.Maintenance.Jobs;
-using Mattermost.Maintenance.Models;
-using Mattermost.Maintenance.Services;
+using Mattermost.RealRetention.Jobs;
+using Mattermost.RealRetention.Models;
+using Mattermost.RealRetention.Services;
 using EasyExtensions.Quartz.Extensions;
 
-namespace Mattermost.Maintenance.Controllers
+namespace Mattermost.RealRetention.Controllers
 {
     public class JobController(ISchedulerFactory _scheduler, ILogger<JobController> _logger, ReportService _reports) : ControllerBase
     {
@@ -17,6 +17,7 @@ namespace Mattermost.Maintenance.Controllers
             return reports;
         }
 
+        [HttpGet("/trigger")]
         [HttpPost("/trigger")]
         public async Task<IActionResult> TriggerJob()
         {

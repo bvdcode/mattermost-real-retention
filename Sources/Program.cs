@@ -1,9 +1,9 @@
-using Mattermost.Maintenance.Database;
-using Mattermost.Maintenance.Services;
 using EasyExtensions.Quartz.Extensions;
+using Mattermost.RealRetention.Database;
+using Mattermost.RealRetention.Services;
 using EasyExtensions.EntityFrameworkCore.Npgsql.Extensions;
 
-namespace Mattermost.Maintenance
+namespace Mattermost.RealRetention
 {
     public class Program
     {

@@ -1,12 +1,13 @@
-﻿namespace Mattermost.Maintenance.Models
+﻿namespace Mattermost.RealRetention.Models
 {
     public class RetentionReport
     {
+        public int Delay { get; set; }
         public bool DryRun { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public string Directory { get; set; } = string.Empty;
-        public int TotalFilesCount { get; set; }
         public int FoldersCount { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public int TotalFilesCount { get; set; }
+        public string Directory { get; set; } = string.Empty;
         public IList<RetentionReportFileInfo> ProcessedFiles { get; set; } = [];
 
         public void OnFileProcessed(string relativePath, long length, bool deleted, string result)

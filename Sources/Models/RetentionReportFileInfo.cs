@@ -1,4 +1,4 @@
-﻿namespace Mattermost.Maintenance.Models
+﻿namespace Mattermost.RealRetention.Models
 {
     public class RetentionReportFileInfo
     {

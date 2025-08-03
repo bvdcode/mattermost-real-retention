@@ -1,17 +1,17 @@
 ﻿using Quartz;
 using System.Globalization;
-using Mattermost.Maintenance.Models;
-using Mattermost.Maintenance.Services;
-using Mattermost.Maintenance.Database;
+using Mattermost.RealRetention.Models;
 using EasyExtensions.Quartz.Attributes;
+using Mattermost.RealRetention.Services;
+using Mattermost.RealRetention.Database;
 
-namespace Mattermost.Maintenance.Jobs
+namespace Mattermost.RealRetention.Jobs
 {
     [JobTrigger(days: 1)]
     public class RetentionJob(AppDbContext _dbContext, ILogger<RetentionJob> _logger,
         IConfiguration configuration, ReportService _reports) : IJob
     {
-        private const int delay = 250; // Delay in milliseconds between file checks
+        private const int defaultDelay = 250;
         private const string folder = "/mattermost/data/";
 
         public async Task Execute(IJobExecutionContext context)
@@ -19,6 +19,14 @@ namespace Mattermost.Maintenance.Jobs
             RetentionReport report = new();
             _reports.AddReport(report);
             bool dryRun = configuration.GetValue("DryRun", true);
+            int delay = configuration.GetValue("DelayBetweenFilesInMs", defaultDelay);
+            if (delay < 0)
+            {
+                _logger.LogWarning("Delay between files is set to a negative value ({delay} ms), using default {defaultDelay} ms instead.", delay, defaultDelay);
+                delay = defaultDelay;
+            }
+            _logger.LogInformation("Starting retention job with delay {delay} ms and dry run mode {dryRun}.", delay, dryRun);
+            report.Delay = delay;
             report.CreatedAt = DateTime.UtcNow;
             report.DryRun = dryRun;
 

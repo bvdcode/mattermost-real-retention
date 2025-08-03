@@ -5,17 +5,17 @@ EXPOSE 8080
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["Mattermost.Maintenance.csproj", "."]
-RUN dotnet restore "./Mattermost.Maintenance.csproj"
+COPY ["Mattermost.RealRetention.csproj", "."]
+RUN dotnet restore "./Mattermost.RealRetention.csproj"
 COPY . .
 WORKDIR "/src/."
-RUN dotnet build "./Mattermost.Maintenance.csproj" -c $BUILD_CONFIGURATION -o /app/build
+RUN dotnet build "./Mattermost.RealRetention.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./Mattermost.Maintenance.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "./Mattermost.RealRetention.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "Mattermost.Maintenance.dll"]
+ENTRYPOINT ["dotnet", "Mattermost.RealRetention.dll"]

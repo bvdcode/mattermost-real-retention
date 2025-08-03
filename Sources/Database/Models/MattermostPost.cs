@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Mattermost.Maintenance.Database.Models
+namespace Mattermost.RealRetention.Database.Models
 {
     [Table("posts")]
     public class MattermostPost

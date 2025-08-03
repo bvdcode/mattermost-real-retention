@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Mattermost.Maintenance.Database.Models;
+using Mattermost.RealRetention.Database.Models;
 
-namespace Mattermost.Maintenance.Database
+namespace Mattermost.RealRetention.Database
 {
     public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
     {

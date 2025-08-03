@@ -1,6 +1,6 @@
-﻿using Mattermost.Maintenance.Models;
+﻿using Mattermost.RealRetention.Models;
 
-namespace Mattermost.Maintenance.Services
+namespace Mattermost.RealRetention.Services
 {
     public class ReportService
     {
