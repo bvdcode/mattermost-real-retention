@@ -40,7 +40,7 @@ jobs:
           tags: |
             ${{ env.DOCKER_NAMESPACE }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.IMAGE_TAG }}
             ${{ env.DOCKER_NAMESPACE }}/${{ env.DOCKER_IMAGE_NAME }}:latest
-          file: ${{ env.DOCKERFILE }}
+          file: ${{ env.CONTEXT_DIR }}/${{ env.DOCKERFILE }}
 
       - name: login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -57,4 +57,4 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.IMAGE_TAG }}
             ghcr.io/${{ github.repository_owner }}/${{ env.DOCKER_IMAGE_NAME }}:latest
-          file: ${{ env.DOCKERFILE }}
+          file: ${{ env.CONTEXT_DIR }}/${{ env.DOCKERFILE }}
