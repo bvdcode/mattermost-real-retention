@@ -1,4 +1,4 @@
-# Mattermost Real File Retention
+# Mattermost Real Retention
 
 ![Docker Pulls](https://img.shields.io/docker/pulls/bvdcode/mattermost-real-retention)
 ![Docker Tag](https://img.shields.io/docker/v/bvdcode/mattermost-real-retention)
@@ -19,7 +19,7 @@ The service automatically finds and removes files that are no longer linked to a
 - 📊 **Detailed logging**: Comprehensive information about the cleanup process
 - 🐳 **Docker Ready**: Ready-to-use Docker image for quick deployment
 - ⚡ **High performance**: Built on .NET 9.0 with optimization
-- 🔒 **Safe database operations**: Only removes file records, no Mattermost data changes
+- 🔒 **Safe database operations**: Removes both file records from database and physical files from filesystem
 
 ## 🏗️ Architecture
 
@@ -122,7 +122,9 @@ The service uses the same PostgreSQL connection settings as your Mattermost serv
    - Does a record exist in the `fileinfo` table
    - Is the file linked to an active post (not deleted)
    - Is the file itself marked as deleted
-4. **Safe deletion**: Orphaned files are removed from both filesystem and database
+4. **Safe deletion**: Orphaned files are removed from both filesystem and database. The service deletes:
+   - Physical files from the filesystem (`/mattermost/data/`)
+   - Corresponding records from the `fileinfo` table in the database
 
 ### File Types for Deletion
 
@@ -138,6 +140,7 @@ The service deletes files in the following cases:
 - 📝 Detailed logging of all operations
 - 🧪 Dry run mode for testing
 - ⏱️ 250ms delay between file checks to reduce load
+- 🗃️ Cleans both filesystem and database records for consistency
 
 ## 📊 Monitoring and Logging
 
@@ -152,6 +155,7 @@ The service deletes files in the following cases:
 ```
 [Information] Found 1523 files in 45 date directories in /mattermost/data/.
 [Warning] File 20241201/abc123/image.jpg not found in the database - deleting from filesystem.
+[Warning] File 20241201/def456/document.pdf is marked deleted - deleting file and database record.
 [Information] Dry run enabled, skipping actual deletion.
 [Information] Retention job completed. 42 files deleted, 1523 files total.
 ```
@@ -196,7 +200,7 @@ Images are built automatically on every push to the `main` branch.
 
 ## 📋 System Requirements
 
-### Minimum Requirements
+### Minimum Recommended
 
 - **CPU**: 1 core
 - **RAM**: 1GB
@@ -235,6 +239,6 @@ This project is distributed under the MIT License. See the [LICENSE](LICENSE) fi
 
 If you have questions or issues:
 
-- Create an [Issue](https://github.com/bvdcode/mattermost-real-file-retention/issues)
+- Create an [Issue](https://github.com/bvdcode/mattermost-real-retention/issues)
 - Check existing Issues
 - Review service logs for diagnostics
