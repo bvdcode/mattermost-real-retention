@@ -38,8 +38,6 @@ The project is built on a modern technology stack:
 - **ASP.NET Core** - Web API host
 - **PostgreSQL** - Mattermost database
 
-> Please note: The `DryRun` mode is enabled by default, meaning that files will not be deleted but only logged. Change this setting to `false` in production after testing. Author is not responsible for data loss. If you have any errors or questions, please open an issue.
-
 ### System Components
 
 ```
@@ -62,6 +60,8 @@ Sources/
 ```
 
 ## 🚀 Quick Start
+
+> Please note: The `DryRun` mode is enabled by default, meaning that files will not be deleted but only logged. Change this setting to `false` in production after testing. Author is not responsible for data loss. If you have any errors or questions, please open an issue.
 
 ### Using Docker Compose (Recommended)
 
@@ -86,8 +86,6 @@ services:
       - DelayBetweenFilesInMs=0 # Optional: delay between file processing
     volumes:
       - /path/to/mattermost/data:/mattermost/data:rw
-    networks:
-      - mattermost_network
 ```
 
 2. Start the container:
