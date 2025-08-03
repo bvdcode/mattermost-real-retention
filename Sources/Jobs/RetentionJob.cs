@@ -66,7 +66,7 @@ namespace Mattermost.RealRetention.Jobs
                 .Where(p => p.DeletedAt == 0)
                 .Select(p => p.Id)
                 .ToHashSetAsync();
-            _logger.LogInformation("Preloading database files...");
+            _logger.LogInformation("Loaded {count} active post identifiers. Preloading database files...", activePosts.Count);
             await _dbContext.Files.ToListAsync();
 
             foreach (var file in files)
