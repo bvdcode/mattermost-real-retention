@@ -95,4 +95,4 @@ jobs:
           name: Release ${{ steps.tags.outputs.minor_tag }}
           draft: false
           prerelease: false
-          token: ${{ secrets.DEPLOY_GITHUB_TOKEN }}
+          token: ${{ github.token }}
