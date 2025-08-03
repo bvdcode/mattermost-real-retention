@@ -80,6 +80,7 @@ namespace Mattermost.RealRetention.Jobs
                     || f.ThumbnailPath == relativePath
                     || f.PreviewPath == relativePath
                 );
+                long fileLength = file.Length;
                 if (fileInfo == null)
                 {
                     _logger.LogWarning("File {fileName} not found in the database - deleting from filesystem.", sanitizedPath);
@@ -92,7 +93,7 @@ namespace Mattermost.RealRetention.Jobs
                         file.Delete();
                     }
                     counter++;
-                    report.OnFileProcessed(relativePath, file.Length, deleted: true, "File not found in database.");
+                    report.OnFileProcessed(relativePath, fileLength, deleted: true, "File not found in database.");
                     continue;
                 }
                 if (activePosts.Contains(fileInfo.PostId) && fileInfo.DeletedAt == 0)
@@ -102,7 +103,7 @@ namespace Mattermost.RealRetention.Jobs
                         sanitizedPath,
                         fileInfo.Id
                     );
-                    report.OnFileProcessed(relativePath, file.Length, deleted: false, "File is associated with an active post.");
+                    report.OnFileProcessed(relativePath, fileLength, deleted: false, "File is associated with an active post.");
                     continue;
                 }
                 else
@@ -121,7 +122,7 @@ namespace Mattermost.RealRetention.Jobs
                         await _dbContext.SaveChangesAsync();
                         file.Delete();
                     }
-                    report.OnFileProcessed(relativePath, file.Length, deleted: true, $"File {result}.");
+                    report.OnFileProcessed(relativePath, fileLength, deleted: true, $"File {result}.");
                     counter++;
                 }
             }
