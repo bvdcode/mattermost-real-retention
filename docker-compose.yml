@@ -1,0 +1,23 @@
+services:
+  mattermost-real-retention:
+    image: bvdcode/mattermost-real-retention:latest
+    restart: always
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=mattermost
+      - POSTGRES_PASSWORD=changeme
+      - POSTGRES_DB=mattermost
+    volumes:
+      - /storage/mattermost/data:/storage/mattermost/data
+    networks:
+      - local
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+
+networks:
+  local:
+    external: true
