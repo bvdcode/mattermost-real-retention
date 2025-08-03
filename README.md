@@ -14,7 +14,7 @@
 - 🐳 Docker-first. Works with PostgreSQL + local filestore (`/mattermost/data`).
 - ⚡ Proven scale: handled **~1M posts / 50k files** in ~**5 min**, ~**150 MB RAM**, ~**50% of 1 core**.
 
-> Free your storage without paying for “retention” features.
+**Free your storage without paying for “retention” features.**
 
 <img width="718" height="459" alt="image" src="https://github.com/user-attachments/assets/53142610-f641-4305-8e29-872fd3d9156f" />
 
