@@ -4,6 +4,7 @@ using Mattermost.RealRetention.Models;
 using EasyExtensions.Quartz.Attributes;
 using Mattermost.RealRetention.Services;
 using Mattermost.RealRetention.Database;
+using Microsoft.EntityFrameworkCore;
 
 namespace Mattermost.RealRetention.Jobs
 {
@@ -11,7 +12,7 @@ namespace Mattermost.RealRetention.Jobs
     public class RetentionJob(AppDbContext _dbContext, ILogger<RetentionJob> _logger,
         IConfiguration configuration, ReportService _reports) : IJob
     {
-        private const int defaultDelay = 250;
+        private const int defaultDelay = 0;
         private const string folder = "/mattermost/data/";
 
         public async Task Execute(IJobExecutionContext context)
@@ -57,6 +58,10 @@ namespace Mattermost.RealRetention.Jobs
                 dateDirectories.Count,
                 folder
             );
+
+            _logger.LogInformation("Preloading database files and posts for performance optimization...");
+            await _dbContext.Files.ToListAsync(context.CancellationToken);
+            await _dbContext.Posts.ToListAsync(context.CancellationToken);
 
             foreach (var file in files)
             {
