@@ -1,6 +1,7 @@
 ﻿using Quartz;
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
+using System.Text.RegularExpressions;
 using Mattermost.RealRetention.Models;
 using EasyExtensions.Quartz.Attributes;
 using Mattermost.RealRetention.Services;
@@ -9,7 +10,7 @@ using Mattermost.RealRetention.Database;
 namespace Mattermost.RealRetention.Jobs
 {
     [JobTrigger(days: 1)]
-    public class RetentionJob(AppDbContext _dbContext, ILogger<RetentionJob> _logger,
+    public partial class RetentionJob(AppDbContext _dbContext, ILogger<RetentionJob> _logger,
         IConfiguration configuration, ReportService _reports) : IJob
     {
         private const int defaultDelay = 0;
@@ -59,17 +60,20 @@ namespace Mattermost.RealRetention.Jobs
                 folder
             );
 
-            _logger.LogInformation("Preloading database files and posts for performance optimization...");
-            HashSet<string> activePosts = [.. _dbContext.Posts
+            _logger.LogInformation("Preloading database posts for performance optimization...");
+            var activePosts = await _dbContext.Posts
                 .AsNoTracking()
                 .Where(p => p.DeletedAt == 0)
-                .Select(p => p.Id.ToString())];
+                .Select(p => p.Id)
+                .ToHashSetAsync();
+            _logger.LogInformation("Preloading database files...");
             await _dbContext.Files.ToListAsync();
 
             foreach (var file in files)
             {
                 await Task.Delay(delay);
                 string relativePath = file.FullName.Replace(folder, string.Empty);
+                string sanitizedPath = Sanitize(relativePath);
                 _logger.LogDebug("Processing file {fileName}.", relativePath);
                 var fileInfo = _dbContext.Files.FirstOrDefault(f =>
                     f.Path == relativePath
@@ -78,7 +82,7 @@ namespace Mattermost.RealRetention.Jobs
                 );
                 if (fileInfo == null)
                 {
-                    _logger.LogWarning("File {fileName} not found in the database - deleting from filesystem.", relativePath);
+                    _logger.LogWarning("File {fileName} not found in the database - deleting from filesystem.", sanitizedPath);
                     if (dryRun)
                     {
                         _logger.LogInformation("Dry run enabled, skipping actual deletion.");
@@ -95,7 +99,7 @@ namespace Mattermost.RealRetention.Jobs
                 {
                     _logger.LogInformation(
                         "File {fileName} with ID {fileId} is associated with an active post, skipping deletion.",
-                        relativePath,
+                        sanitizedPath,
                         fileInfo.Id
                     );
                     report.OnFileProcessed(relativePath, file.Length, deleted: false, "File is associated with an active post.");
@@ -106,7 +110,7 @@ namespace Mattermost.RealRetention.Jobs
                     string result = fileInfo.DeletedAt > 0
                         ? "is marked deleted"
                         : "is associated with a deleted post";
-                    _logger.LogWarning("File {fileName} with ID {fileId} {result} - deleting.", relativePath, fileInfo.Id, result);
+                    _logger.LogWarning("File {fileName} with ID {fileId} {result} - deleting.", sanitizedPath, fileInfo.Id, result);
                     if (dryRun)
                     {
                         _logger.LogInformation("Dry run enabled, skipping actual deletion.");
@@ -124,5 +128,18 @@ namespace Mattermost.RealRetention.Jobs
 
             _logger.LogInformation("Retention job completed. {counter} files deleted, {total} files total.", counter, files.Length);
         }
+
+        private static string Sanitize(string relativePath)
+        {
+            if (string.IsNullOrEmpty(relativePath))
+            {
+                return relativePath;
+            }
+
+            return MattermostIdRegex().Replace(relativePath, match => $"{match.Value[..3]}...{match.Value[^3..]}");
+        }
+
+        [GeneratedRegex(@"\b[a-z0-9]{26}\b", RegexOptions.IgnoreCase, "en-US")]
+        private static partial Regex MattermostIdRegex();
     }
 }
