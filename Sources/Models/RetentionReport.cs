@@ -21,7 +21,7 @@
             ProcessedFiles.Add(new RetentionReportFileInfo
             {
                 RelativePath = relativePath,
-                Length = length,
+                FileLength = length,
                 IsDeleted = deleted,
                 Result = result
             });
