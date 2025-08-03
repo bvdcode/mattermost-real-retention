@@ -1,14 +1,20 @@
 # Mattermost Real Retention
 
+[![CI](https://github.com/bvdcode/mattermost-real-retention/actions/workflows/docker-image.yml/badge.svg)](https://github.com/bvdcode/mattermost-real-retention/actions/workflows/docker-image.yml)
+[![Release](https://img.shields.io/github/v/release/bvdcode/mattermost-real-retention?sort=semver)](https://github.com/bvdcode/mattermost-real-retention/releases)
 [![Docker Pulls](https://img.shields.io/docker/pulls/bvdcode/mattermost-real-retention)](https://hub.docker.com/r/bvdcode/mattermost-real-retention)
-[![Docker Tag](https://img.shields.io/docker/v/bvdcode/mattermost-real-retention)](https://hub.docker.com/r/bvdcode/mattermost-real-retention)
-![.NET](https://img.shields.io/badge/.NET-9.0-blue)
+[![Image Size](https://img.shields.io/docker/image-size/bvdcode/mattermost-real-retention/latest)](https://hub.docker.com/r/bvdcode/mattermost-real-retention/tags)
+[![License](https://img.shields.io/github/license/bvdcode/mattermost-real-retention)](LICENSE)
+[![CodeFactor](https://www.codefactor.io/repository/github/bvdcode/mattermost-real-retention/badge)](https://www.codefactor.io/repository/github/bvdcode/mattermost-real-retention)
 
-**Safe automatic cleanup of orphaned files in Mattermost Community/Team Edition without requiring an Enterprise license.**
+**Safely deletes orphaned files in Mattermost Community/Team Edition. No Enterprise. No nonsense.**
 
-The service automatically finds and removes files that are no longer linked to active posts in Mattermost, helping save disk space and maintain a clean file system.
+- 🧹 Finds files whose posts no longer exist and removes them (attachments, thumbs, previews).
+- 🔒 Safe by default: **dry-run** first, detailed logs.
+- 🐳 Docker-first. Works with PostgreSQL + local filestore (`/mattermost/data`).
+- ⚡ Proven scale: handled **~1M posts / 50k files** in ~**5 min**, ~**150 MB RAM**, ~**50% of 1 core**.
 
-> Please note: The `DryRun` mode is enabled by default, meaning that files will not be deleted but only logged. Change this setting to `false` in production after testing. Author is not responsible for data loss. If you have any errors or questions, please open an issue.
+**Free your storage without paying for “retention” features.**
 
 <img width="718" height="459" alt="image" src="https://github.com/user-attachments/assets/53142610-f641-4305-8e29-872fd3d9156f" />
 
@@ -31,6 +37,8 @@ The project is built on a modern technology stack:
 - **Quartz.NET** - Task scheduler for automatic execution
 - **ASP.NET Core** - Web API host
 - **PostgreSQL** - Mattermost database
+
+> Please note: The `DryRun` mode is enabled by default, meaning that files will not be deleted but only logged. Change this setting to `false` in production after testing. Author is not responsible for data loss. If you have any errors or questions, please open an issue.
 
 ### System Components
 
