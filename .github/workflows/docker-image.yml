@@ -8,7 +8,6 @@ on:
 
 env:
   CONTEXT_DIR: Sources
-  IMAGE_TAG: v1.1
   DOCKERFILE: Dockerfile
   DOCKER_NAMESPACE: bvdcode
   DOCKER_IMAGE_NAME: mattermost-real-retention
@@ -55,7 +54,7 @@ jobs:
           context: ${{ env.CONTEXT_DIR }}
           push: true
           tags: |
-            ${{ env.DOCKER_NAMESPACE }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+            ${{ env.DOCKER_NAMESPACE }}/${{ env.DOCKER_IMAGE_NAME }}:v${{ needs.build.outputs.Version }}
             ${{ env.DOCKER_NAMESPACE }}/${{ env.DOCKER_IMAGE_NAME }}:latest
           file: ${{ env.CONTEXT_DIR }}/${{ env.DOCKERFILE }}
 
@@ -72,7 +71,7 @@ jobs:
           context: ${{ env.CONTEXT_DIR }}
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+            ghcr.io/${{ github.repository_owner }}/${{ env.DOCKER_IMAGE_NAME }}:v${{ needs.build.outputs.Version }}
             ghcr.io/${{ github.repository_owner }}/${{ env.DOCKER_IMAGE_NAME }}:latest
           file: ${{ env.CONTEXT_DIR }}/${{ env.DOCKERFILE }}
 
