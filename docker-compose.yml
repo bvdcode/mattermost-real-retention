@@ -3,13 +3,14 @@ services:
     image: bvdcode/mattermost-real-retention:latest
     restart: always
     environment:
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_USER=mattermost
-      - POSTGRES_PASSWORD=changeme
-      - POSTGRES_DB=mattermost
+      - PostgresHost=postgres
+      - PostgresPort=5432
+      - PostgresUser=mattermost
+      - PostgresPassword=changeme
+      - PostgresDatabase=mattermost
+      - DryRun=true
     volumes:
-      - /storage/mattermost/data:/storage/mattermost/data
+      - /storage/mattermost/data:/mattermost/data
     networks:
       - local
     deploy:

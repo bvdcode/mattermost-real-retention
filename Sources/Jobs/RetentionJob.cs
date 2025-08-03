@@ -1,17 +1,20 @@
-﻿using System.Globalization;
-using EasyExtensions.Quartz.Attributes;
+﻿using Quartz;
+using System.Globalization;
 using Mattermost.Maintenance.Database;
-using Quartz;
+using EasyExtensions.Quartz.Attributes;
 
 namespace Mattermost.Maintenance.Jobs
 {
-    [JobTrigger(days: 7)]
-    public class RetentionJob(AppDbContext _dbContext, ILogger<RetentionJob> _logger) : IJob
+    [JobTrigger(days: 1)]
+    public class RetentionJob(AppDbContext _dbContext, ILogger<RetentionJob> _logger, IConfiguration configuration) : IJob
     {
-        private const string folder = "/storage/mattermost/data/";
+        private const int delay = 250; // Delay in milliseconds between file checks
+        private const string folder = "/mattermost/data/";
 
         public async Task Execute(IJobExecutionContext context)
         {
+            bool dryRun = configuration.GetValue("DryRun", true);
+
             DirectoryInfo di = new(folder);
             if (!di.Exists)
             {
@@ -21,7 +24,7 @@ namespace Mattermost.Maintenance.Jobs
 
             var dateDirectories = di.GetDirectories()
                 .Where(d =>
-                    d.Name.Length == 8
+                    d.Name.Length == 8 // Ensure the directory name is 8 characters long (YYYYMMDD format)
                     && DateTime.TryParseExact(d.Name, "yyyyMMdd", null, DateTimeStyles.None, out _)
                 )
                 .ToList();
@@ -39,7 +42,7 @@ namespace Mattermost.Maintenance.Jobs
 
             foreach (var file in files)
             {
-                await Task.Delay(250);
+                await Task.Delay(delay);
                 string relativePath = file.FullName.Replace(folder, string.Empty);
                 _logger.LogDebug("Processing file {fileName}.", relativePath);
                 var fileInfo = _dbContext.Files.FirstOrDefault(f =>
@@ -49,11 +52,15 @@ namespace Mattermost.Maintenance.Jobs
                 );
                 if (fileInfo == null)
                 {
-                    _logger.LogWarning(
-                        "File {fileName} not found in the database - deleting from filesystem.",
-                        relativePath
-                    );
-                    file.Delete();
+                    _logger.LogWarning("File {fileName} not found in the database - deleting from filesystem.", relativePath);
+                    if (dryRun)
+                    {
+                        _logger.LogInformation("Dry run enabled, skipping actual deletion.");
+                    }
+                    else
+                    {
+                        file.Delete();
+                    }
                     counter++;
                     continue;
                 }
@@ -71,25 +78,25 @@ namespace Mattermost.Maintenance.Jobs
                 }
                 else
                 {
-                    _logger.LogWarning(
-                        fileInfo.DeletedAt > 0
-                            ? "File {fileName} with ID {fileId} is marked deleted - deleting."
-                            : "File {fileName} with ID {fileId} is associated with a deleted post - deleting.",
-                        relativePath,
-                        fileInfo.Id
-                    );
-                    _dbContext.Files.Remove(fileInfo);
-                    await _dbContext.SaveChangesAsync();
-                    file.Delete();
+                    string result = fileInfo.DeletedAt > 0
+                        ? "is marked deleted."
+                        : "is associated with a deleted post.";
+                    _logger.LogWarning("File {fileName} with ID {fileId} {result} - deleting.", relativePath, fileInfo.Id, result);
+                    if (dryRun)
+                    {
+                        _logger.LogInformation("Dry run enabled, skipping actual deletion.");
+                    }
+                    else
+                    {
+                        _dbContext.Files.Remove(fileInfo);
+                        await _dbContext.SaveChangesAsync();
+                        file.Delete();
+                    }
                     counter++;
                 }
             }
 
-            _logger.LogInformation(
-                "Retention job completed. {counter} files deleted, {remaining} files total.",
-                counter,
-                files.Length
-            );
+            _logger.LogInformation("Retention job completed. {counter} files deleted, {total} files total.", counter, files.Length);
         }
     }
 }
