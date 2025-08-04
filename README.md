@@ -292,7 +292,7 @@ Images are built automatically on every push to the `main` branch.
 
 - **CPU**: 1 core
 - **RAM**: 512MB (tested with 150-200MB usage on 1M posts + 50K files)
-- **Disk**: Minimum for image storage (~200MB)
+- **Disk**: Minimum for image storage (~100MB)
 - **Access**: Read access to Mattermost data directory
 - **Network**: Connection to PostgreSQL server
 
