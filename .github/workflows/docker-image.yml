@@ -3,6 +3,8 @@ name: Build and push
 on:
   push:
     branches: [main]
+    paths: 
+      - 'Sources/**'
   workflow_dispatch:
 
 env:
