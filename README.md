@@ -73,9 +73,8 @@ services:
     image: bvdcode/mattermost-real-retention:latest
     restart: always
     # Optional: Expose API endpoints for manual control and monitoring
-    # Comment out the ports section if you don't need external API access
     ports:
-      - "8080:8080"  # API endpoints (optional)
+      - "8080:8080"  # API endpoints
     environment:
       - PostgresHost=postgres
       - PostgresPort=5432
@@ -100,7 +99,7 @@ docker-compose up -d
 docker run -d \
   --name mattermost-retention \
   --restart always \
-  -p 8080:8080 \  # Optional: Only if you need API access
+  -p 8080:8080 \  # Optional: API endpoints
   -e PostgresHost=your_postgres_host \
   -e PostgresPort=5432 \
   -e PostgresUser=mattermost \
@@ -110,8 +109,6 @@ docker run -d \
   -v /path/to/mattermost/data:/mattermost/data:rw \
   bvdcode/mattermost-real-retention:latest
 ```
-
-> **Note**: Remove the `-p 8080:8080` line if you don't need external access to the API endpoints. The service will work perfectly for automatic cleanup without exposing any ports.
 
 ## ⚙️ Configuration
 
@@ -137,20 +134,7 @@ The service uses the same PostgreSQL connection settings as your Mattermost serv
 
 ## 🔌 API Endpoints
 
-The service provides REST API endpoints for monitoring and manual control. **Note**: API access is optional - the service works automatically without exposing any ports.
-
-### When to expose API ports:
-
-- ✅ **Manual job triggering**: When you need to run cleanup on-demand
-- ✅ **Monitoring integration**: For external monitoring systems or dashboards  
-- ✅ **Testing and debugging**: During initial setup and troubleshooting
-- ✅ **Automation scripts**: If you have custom scripts that need job status
-
-### When NOT to expose API ports:
-
-- ❌ **Production environments**: If you only need automatic daily cleanup
-- ❌ **Security-sensitive deployments**: To minimize attack surface
-- ❌ **Simple setups**: When "set and forget" automatic operation is sufficient
+The service provides REST API endpoints on port 8080 for monitoring and manual control.
 
 ### GET /status
 
@@ -179,7 +163,6 @@ Returns detailed reports of all retention job executions.
 
 **Usage:**
 ```bash
-# Only works if ports are exposed
 curl http://localhost:8080/status
 ```
 
@@ -194,7 +177,6 @@ Manually triggers the retention cleanup job.
 
 **Usage:**
 ```bash
-# Only works if ports are exposed
 curl -X POST http://localhost:8080/trigger
 ```
 
@@ -207,7 +189,7 @@ curl -X POST http://localhost:8080/trigger
 1. **File scanning**: Every 24 hours the service scans the `/mattermost/data/` directory
 2. **Date-based file search**: Only processes directories in `YYYYMMDD` format
 3. **Performance optimization**: 
-   - Preloads up to 1M active posts into memory for fast lookup
+   - Preloads up to 1M active posts into memory for fast lookup (if there are more posts, the remaining ones will be queried on-demand)
    - Bulk loads file records for efficient database access
    - Uses AsNoTracking for read-only operations to reduce memory overhead
 4. **Database verification**: For each file, checks:
