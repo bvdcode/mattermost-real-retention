@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Mattermost.RealRetention.Jobs;
 using Mattermost.RealRetention.Models;
 using Mattermost.RealRetention.Services;
-using EasyExtensions.Quartz.Extensions;
 
 namespace Mattermost.RealRetention.Controllers
 {
@@ -19,9 +18,10 @@ namespace Mattermost.RealRetention.Controllers
 
         [HttpGet("/trigger")]
         [HttpPost("/trigger")]
-        public async Task<IActionResult> TriggerJob()
+        public async Task<IActionResult> TriggerJob(CancellationToken cancellationToken)
         {
-            await _scheduler.TriggerJobAsync<RetentionJob>();
+            var scheduler = await _scheduler.GetScheduler(cancellationToken);
+            await scheduler.TriggerJob(RetentionJob.Key, cancellationToken: cancellationToken);
             _logger.LogInformation("Job '{jobName}' has been triggered successfully.", nameof(RetentionJob));
             return Ok($"Job '{nameof(RetentionJob)}' has been triggered successfully.");
         }

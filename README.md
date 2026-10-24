@@ -3,338 +3,143 @@
 [![CI](https://github.com/bvdcode/mattermost-real-retention/actions/workflows/docker-image.yml/badge.svg)](https://github.com/bvdcode/mattermost-real-retention/actions/workflows/docker-image.yml)
 [![Release](https://img.shields.io/github/v/release/bvdcode/mattermost-real-retention?sort=semver)](https://github.com/bvdcode/mattermost-real-retention/releases)
 [![Docker Pulls](https://img.shields.io/docker/pulls/bvdcode/mattermost-real-retention)](https://hub.docker.com/r/bvdcode/mattermost-real-retention)
-[![Image Size](https://img.shields.io/docker/image-size/bvdcode/mattermost-real-retention/latest)](https://hub.docker.com/r/bvdcode/mattermost-real-retention/tags)
 [![License](https://img.shields.io/github/license/bvdcode/mattermost-real-retention)](LICENSE)
-[![CodeFactor](https://www.codefactor.io/repository/github/bvdcode/mattermost-real-retention/badge)](https://www.codefactor.io/repository/github/bvdcode/mattermost-real-retention)
 
-**Safely deletes orphaned files in Mattermost Community/Team Edition. No Enterprise. No nonsense.**
+Reclaim local disk space used by deleted Mattermost attachments. Runs independently of Mattermost with access to its PostgreSQL database and local data directory. No Enterprise license is required.
 
-- 🧹 Finds files whose posts no longer exist and removes them (attachments, thumbs, previews).
-- 🔒 Safe by default: **dry-run** first, detailed logs.
-- 🐳 Docker-first. Works with PostgreSQL + local filestore (`/mattermost/data`).
-- ⚡ Proven scale: handled **~1M posts / 50k files** in ~**5 min**, ~**150 MB RAM**, ~**50% of 1 core**.
+The service runs at startup and every 24 hours. **Dry-run is enabled by default.** It does not delete messages or apply an age-based retention policy.
 
-**Free your storage without paying for “retention” features.**
+## What gets removed
 
-<img width="718" height="459" alt="image" src="https://github.com/user-attachments/assets/53142610-f641-4305-8e29-872fd3d9156f" />
+An attachment is eligible only when PostgreSQL confirms either:
 
-## ✨ Features
+- Its `fileinfo.deleteat` is greater than zero.
+- Its linked post exists and `posts.deleteat` is greater than zero.
 
-- 🔄 **Automatic cleanup**: Daily orphaned file cleanup task execution
-- 🛡️ **Safety first**: Dry run mode enabled by default for testing
-- 📊 **Detailed logging**: Comprehensive information about the cleanup process
-- 🐳 **Docker Ready**: Ready-to-use Docker image for quick deployment
-- ⚡ **High performance**: Built on .NET 9.0 with database preloading and smart caching
-- 🔒 **Safe database operations**: Removes both file records from database and physical files from filesystem
-- 🔌 **REST API**: HTTP endpoints for manual job triggering and status monitoring
+For each eligible attachment, the service processes its original file, thumbnail and preview. It deletes the `fileinfo` row only after all those paths have been handled successfully. Missing files count as already cleaned. Post rows are never changed.
 
-## 🏗️ Architecture
+Active attachments, uploads without an attached post, records referencing a missing post, and disk files with no database record are left alone unless the file record itself is explicitly marked deleted. A path referenced by another attachment is also left alone and logged for inspection.
 
-The project is built on a modern technology stack:
+**Version 2 changes the deletion rule:** version 1 also deleted files simply because their database record or post was missing. Version 2 requires explicit evidence of deletion. This avoids deleting uploads in progress and removes the old one-million-post cutoff.
 
-- **.NET 9.0** - Main platform
-- **Entity Framework Core** - ORM for PostgreSQL database operations
-- **Quartz.NET** - Task scheduler for automatic execution
-- **ASP.NET Core** - Web API host
-- **PostgreSQL** - Mattermost database
+## Docker Compose
 
-### System Components
-
-```
-Sources/
-├── Program.cs                    # Application entry point
-├── Controllers/
-│   └── JobController.cs         # REST API endpoints
-├── Services/
-│   └── ReportService.cs         # Retention reports management
-├── Models/
-│   ├── RetentionReport.cs       # Report data model
-│   └── RetentionReportFileInfo.cs # File processing details
-├── Database/
-│   ├── AppDbContext.cs          # Entity Framework context
-│   └── Models/
-│       ├── MattermostPost.cs    # Mattermost posts model
-│       └── MattermostFileInfo.cs # File information model
-└── Jobs/
-    └── RetentionJob.cs          # Main file cleanup job
-```
-
-## 🚀 Quick Start
-
-> Please note: The `DryRun` mode is enabled by default, meaning that files will not be deleted but only logged. Change this setting to `false` in production after testing. Author is not responsible for data loss. If you have any errors or questions, please open an issue.
-
-### Using Docker Compose (Recommended)
-
-1. Create a `docker-compose.yml` file:
+Connect the container to the same Docker network as PostgreSQL and mount the **actual Mattermost local filestore**:
 
 ```yaml
 services:
   mattermost-real-retention:
     image: bvdcode/mattermost-real-retention:latest
-    restart: always
-    # Optional: Expose API endpoints for manual control and monitoring
-    ports:
-      - "8080:8080"  # API endpoints
+    restart: unless-stopped
     environment:
-      - PostgresHost=postgres
-      - PostgresPort=5432
-      - PostgresUser=mattermost
-      - PostgresPassword=changeme
-      - PostgresDatabase=mattermost
-      - DryRun=true # Set to false for actual deletion
-      - DelayBetweenFilesInMs=0 # Optional: delay between file processing
+      PostgresHost: postgres
+      PostgresPort: 5432
+      PostgresUser: mattermost
+      PostgresPassword: ${MATTERMOST_DB_PASSWORD}
+      PostgresDatabase: mattermost
+      DryRun: "true"
     volumes:
       - /path/to/mattermost/data:/mattermost/data:rw
+    # Optional. No published port or reverse proxy is needed for scheduled cleanup.
+    # ports:
+    #   - "127.0.0.1:8080:8080"
 ```
-
-2. Start the container:
 
 ```bash
-docker-compose up -d
+docker compose up -d
+docker compose logs -f mattermost-real-retention
 ```
 
-### Using Docker
+Check the dry-run summary and ensure that the mounted directory belongs to this database. To enable deletion, change `DryRun` to `"false"` and recreate the container with `docker compose up -d`. Keep backups before enabling permanent deletion.
 
-```bash
-docker run -d \
-  --name mattermost-retention \
-  --restart always \
-  -p 8080:8080 \  # Optional: API endpoints
-  -e PostgresHost=your_postgres_host \
-  -e PostgresPort=5432 \
-  -e PostgresUser=mattermost \
-  -e PostgresPassword=your_password \
-  -e PostgresDatabase=mattermost \
-  -e DryRun=true \
-  -v /path/to/mattermost/data:/mattermost/data:rw \
-  bvdcode/mattermost-real-retention:latest
-```
+The database account needs `SELECT` on `posts` and `fileinfo`, `DELETE` on `fileinfo`, and the `UPDATE` privileges PostgreSQL requires for row locking. The service does not issue `UPDATE` statements, create tables, run migrations, or alter Mattermost's schema. The filesystem account needs permission to read files and remove entries from their parent directories.
 
-## ⚙️ Configuration
+Only PostgreSQL and a local filestore are supported. S3/object storage is not supported. An absent or empty data directory stops a destructive run; this helps catch missing volume mounts but cannot verify that a nonempty mount belongs to the selected database. Symbolic links inside attachment paths are rejected. Do not replace the mounted directory or change its links while a run is active.
 
-### Environment Variables
+## Configuration
 
-| Variable           | Description                      | Default             | Required |
-| ------------------ | -------------------------------- | ------------------- | -------- |
-| `PostgresHost`     | PostgreSQL server host           | `postgres-server`   | ✅       |
-| `PostgresPort`     | PostgreSQL port                  | `5432`              | ❌       |
-| `PostgresUser`     | PostgreSQL username              | `mattermost_server` | ✅       |
-| `PostgresPassword` | PostgreSQL password              | -                   | ✅       |
-| `PostgresDatabase` | Database name                    | `mattermost`        | ✅       |
-| `DryRun`           | Test mode (doesn't delete files) | `true`              | ❌       |
-| `DelayBetweenFilesInMs` | Delay between file processing (ms) | `0`            | ❌       |
+Existing `Postgres*`, `DryRun` and `DelayBetweenFilesInMs` environment variables continue to work.
 
-### Database Connection Setup
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `PostgresHost` | `postgres-server` | PostgreSQL host |
+| `PostgresPort` | `5432` | PostgreSQL port |
+| `PostgresUser` | `mattermost_server` | PostgreSQL username |
+| `PostgresPassword` | unset | PostgreSQL password |
+| `PostgresDatabase` | `mattermost` | Mattermost database |
+| `DryRun` | `true` | Report intended deletions without changing files or database rows |
+| `DataDirectory` | `/mattermost/data` | Local filestore mount |
+| `BatchSize` | `200` | Maximum candidate IDs loaded at once; range 1–5000 |
+| `DelayBetweenFilesInMs` | `0` | Optional delay per attachment path; range 0–60000 |
 
-The service uses the same PostgreSQL connection settings as your Mattermost server. Ensure that:
+`DatabaseSettings:Host`, `Port`, `Username`, `Password` and `Database` remain available in ASP.NET configuration as fallbacks for the corresponding `Postgres*` settings.
 
-1. The user has read permissions on `posts` and `fileinfo` tables
-2. The user has delete permissions on `fileinfo` table records (only when `DryRun=false`)
-3. The service can connect to the Mattermost database
+## Memory and failure handling
 
-## 🔌 API Endpoints
+- Candidates are selected in PostgreSQL and read in bounded batches, using the last processed ID instead of offset pagination. The service never preloads all active posts or enumerates the entire filestore.
+- Database reads do not populate EF's change tracker. Only one batch of IDs and the current attachment are needed in memory.
+- A short transaction per attachment locks its current metadata and, when deletion depends on the post, the post's deletion state. The state is checked again before any files are removed.
+- Original, thumbnail and preview paths are checked before deletion. Paths outside the configured directory, directory paths, and symbolic links are rejected.
+- A filesystem error keeps the row for retry and does not prevent other attachments from being processed. A database error fails that run; the next scheduled or manual run retries remaining rows.
+- Filesystem deletion and a PostgreSQL transaction cannot be atomic. If a process stops after deleting a file but before committing the row deletion, the next run tolerates the missing file and finishes cleanup.
+- Quartz prevents overlapping executions of the job in one service instance. Database row locks also serialize access to the same attachment across instances. A single container is recommended.
+- Reports retain the last 10 finished runs and at most 100 file details per run. Aggregate counters still include every processed file. Reports are lost on restart.
 
-The service provides REST API endpoints on port 8080 for monitoring and manual control.
+## Optional HTTP API
 
-### GET /status
+The container listens on port 8080. Scheduled cleanup does not require publishing that port. The API has no authentication; publish it only where manual access is intended.
 
-Returns detailed reports of all retention job executions.
+- `GET /status` returns the last 10 **finished** reports, oldest first. While the first run is executing it returns `[]`; use container logs for progress.
+- `POST /trigger` queues another execution. `GET /trigger` remains supported for compatibility. Requests respect `DryRun` and do not run concurrently within the same scheduler.
 
-**Response:**
-```json
-[
-  {
-    "dryRun": true,
-    "createdAt": "2025-01-15T10:30:00Z",
-    "directory": "/mattermost/data/",
-    "totalFilesCount": 1523,
-    "foldersCount": 45,
-    "processedFiles": [
-      {
-        "relativePath": "20241201/abc123/image.jpg",
-        "length": 245760,
-        "deleted": true,
-        "result": "File not found in database - deleted from filesystem"
-      }
-    ]
-  }
-]
-```
-
-**Usage:**
 ```bash
 curl http://localhost:8080/status
-```
-
-### POST /trigger
-
-Manually triggers the retention cleanup job.
-
-**Response:**
-```json
-"Job 'RetentionJob' has been triggered successfully."
-```
-
-**Usage:**
-```bash
 curl -X POST http://localhost:8080/trigger
 ```
 
-> **Note**: The trigger endpoint is useful for testing and manual cleanup runs. The job will still respect the `DryRun` setting.
+Reports include `status` (`Completed`, `CompletedWithErrors`, `Failed`, or `Cancelled`), timestamps, candidate/deleted/skipped/failed record counts, deleted/missing/would-delete file counts, byte counts, and a bounded `processedFiles` sample. In dry-run, actual deletion counters stay zero; use `wouldDeleteFilesCount` and `wouldDeleteBytes`. `detailsTruncated` indicates that the sample is incomplete. A failed run exposes the exception type in `error`; details are logged.
 
-## 🔧 How It Works
+Version 2 removes `totalFilesCount` and `foldersCount`: the service no longer inventories the disk. `processedFilesCount` is an aggregate rather than the sample length.
 
-### Algorithm
+## Development and tests
 
-1. **File scanning**: Every 24 hours the service scans the `/mattermost/data/` directory
-2. **Date-based file search**: Only processes directories in `YYYYMMDD` format
-3. **Performance optimization**: 
-   - Preloads up to 1M active posts into memory for fast lookup (if there are more posts, the remaining ones will be queried on-demand)
-   - Bulk loads file records for efficient database access
-   - Uses AsNoTracking for read-only operations to reduce memory overhead
-4. **Database verification**: For each file, checks:
-   - Does a record exist in the `fileinfo` table
-   - Is the file linked to an active post (not deleted)
-   - Is the file itself marked as deleted
-5. **Safe deletion**: Orphaned files are removed from both filesystem and database. The service deletes:
-   - Physical files from the filesystem (`/mattermost/data/`)
-   - Corresponding records from the `fileinfo` table in the database
-
-### File Types for Deletion
-
-The service deletes files in the following cases:
-
-- ✅ File not found in `fileinfo` table
-- ✅ File linked to a deleted post (`posts.deleteat > 0`)
-- ✅ File marked as deleted (`fileinfo.deleteat > 0`)
-
-### Safety
-
-- 🔒 Never deletes files linked to active posts
-- 📝 Detailed logging of all operations with sensitive data sanitization
-- 🧪 Dry run mode for testing
-- ⏱️ Configurable delay between file checks (default: 0ms for maximum speed)
-- 🗃️ Cleans both filesystem and database records for consistency
-- 🚀 Memory-efficient processing with database preloading and bulk operations
-
-## 📊 Monitoring and Logging
-
-### API Monitoring
-
-Use the `/status` endpoint to programmatically monitor retention job executions:
-
-- **Job history**: View all completed retention jobs with detailed statistics
-- **File details**: See exactly which files were processed and their outcomes  
-- **Performance metrics**: Track total files processed, execution time, and cleanup efficiency
-- **Dry run validation**: Review what would be deleted before setting `DryRun=false`
-
-### Log Levels
-
-- **Information**: General process information
-- **Warning**: Found orphaned files
-- **Debug**: Detailed information about each file
-
-### Log Examples
-
-```
-[Information] Starting retention job with delay 0 ms and dry run mode True.
-[Information] Found 1523 files in 45 date directories in /mattermost/data/.
-[Information] Preloading database posts for performance optimization...
-[Information] Preloaded 987543 active posts from the database.
-[Information] Preloading database files for performance optimization...
-[Warning] File 20241201/abc...123/image.jpg not found in the database - deleting from filesystem.
-[Warning] File 20241201/def...456/document.pdf is marked deleted - deleting file and database record.
-[Information] Dry run enabled, skipping actual deletion.
-[Information] Retention job completed. 42 files deleted, 1523 files total.
-```
-
-## 🛠️ Development
-
-### Requirements
-
-- .NET 9.0 SDK
-- PostgreSQL (for testing)
-- Docker (optional)
-
-### Building the Project
+Requires .NET 10 SDK. The service uses EF Core 10, Npgsql and Quartz 4 directly.
 
 ```bash
-cd Sources
-dotnet restore
-dotnet build
+dotnet build Sources/Mattermost.RealRetention.sln --configuration Release
+dotnet run --project Sources/Mattermost.RealRetention.csproj
 ```
 
-### Running in Development Mode
+For local development the launch profile listens on `http://localhost:5277`. Override `DataDirectory` and the PostgreSQL settings before running. The job starts automatically, including in development.
+
+Tests use a real, **isolated test PostgreSQL database** and temporary files. Each test creates its own schema; do not point tests at the Mattermost database. Run filesystem permission tests as a non-root Linux user.
 
 ```bash
-cd Sources
-dotnet run
+docker run --rm -d --name retention-test-db \
+  -e POSTGRES_PASSWORD=retention-tests \
+  -e POSTGRES_DB=retention_tests \
+  -p 127.0.0.1:55432:5432 postgres:18
+
+export RETENTION_TEST_DATABASE='Host=localhost;Port=55432;Database=retention_tests;Username=postgres;Password=retention-tests'
+dotnet test Sources/Mattermost.RealRetention.sln --configuration Release
+
+docker stop retention-test-db
 ```
 
-### Building Docker Image
+Coverage includes a database with over a million active posts, batched cleanup, active/unattached/missing-post preservation, dry-run, previews, repeated runs, shared paths, unsafe paths, permission failures, cancellation, concurrent execution, post restoration while waiting for a lock, recovery after a database failure, and bounded report storage.
+
+Build the container with:
 
 ```bash
-docker build -t mattermost-retention ./Sources
+docker build -t mattermost-real-retention ./Sources
 ```
 
-## 🔄 CI/CD
+## CI and images
 
-The project uses GitHub Actions for automatic building and publishing of Docker images:
+GitHub Actions builds and tests against PostgreSQL before publishing images. Pull requests run tests without publishing. Changes to source, tests, package configuration or the workflow trigger CI; publication is limited to `main` and manual runs on `main`.
 
-- **Docker Hub**: `bvdcode/mattermost-real-retention`
-- **GitHub Container Registry**: `ghcr.io/bvdcode/mattermost-real-retention`
+Images are published to Docker Hub (`bvdcode/mattermost-real-retention`) and GHCR (`ghcr.io/bvdcode/mattermost-real-retention`) with a full version tag, a major/minor alias, `latest`, and `sha-<full commit SHA>`. Use a full commit tag when pinning an exact build.
 
-Images are built automatically on every push to the `main` branch.
+## License
 
-## 📋 System Requirements
-
-### Minimum Requirements
-
-- **CPU**: 1 core
-- **RAM**: 512MB (tested with 150-200MB usage on 1M posts + 50K files)
-- **Disk**: Minimum for image storage (~100MB)
-- **Access**: Read access to Mattermost data directory
-- **Network**: Connection to PostgreSQL server
-
-### Performance Characteristics
-
-**Tested on production scale:**
-- **Database size**: ~1 million posts, ~50,000 fileinfo records
-- **Memory usage**: 150-200MB RAM during execution
-- **Processing speed**: Optimized with database preloading and minimal delays
-- **Efficiency**: Bulk operations and smart caching for large datasets
-
-### Deployment Recommendations
-
-- Run the service on the same server where Mattermost files are located
-- Use network storage if Mattermost runs in a cluster
-- Set up log monitoring to track service operation
-- Start with `DryRun=true` to assess cleanup volume
-
-## ❗ Important Notes
-
-1. **Dry run mode**: Enabled by default `DryRun=true` - files are not deleted, only logged
-2. **Backups**: Always create a backup of your data before first run
-3. **Testing**: Test the service in dry run mode before production use
-4. **Permissions**: Ensure the container has read/write permissions to the data directory
-
-## 🤝 Contributing
-
-Contributions to the project are welcome:
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Create a Pull Request
-
-## 📄 License
-
-This project is distributed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-If you have questions or issues:
-
-- Create an [Issue](https://github.com/bvdcode/mattermost-real-retention/issues)
-- Check existing Issues
-- Review service logs for diagnostics
+MIT. See [LICENSE](LICENSE).

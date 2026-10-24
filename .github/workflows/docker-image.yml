@@ -5,6 +5,16 @@ on:
     branches: [main]
     paths: 
       - 'Sources/**'
+      - 'Tests/**'
+      - 'NuGet.Config'
+      - 'GitVersion.yml'
+      - '.github/workflows/docker-image.yml'
+  pull_request:
+    paths:
+      - 'Sources/**'
+      - 'Tests/**'
+      - 'NuGet.Config'
+      - '.github/workflows/docker-image.yml'
   workflow_dispatch:
 
 env:
@@ -14,8 +24,37 @@ env:
   DOCKER_IMAGE_NAME: mattermost-real-retention
 
 jobs:
+  test:
+    name: Build and test against PostgreSQL
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: retention-tests
+          POSTGRES_DB: retention_tests
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      RETENTION_TEST_DATABASE: Host=localhost;Port=5432;Database=retention_tests;Username=postgres;Password=retention-tests
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet test Sources/Mattermost.RealRetention.sln --configuration Release --nologo
+
   push_to_registry:
     name: push docker image to hub
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -23,20 +62,20 @@ jobs:
 
     steps:
       - name: Checkout (full history + tags)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           lfs: true
           fetch-depth: 0
           fetch-tags: true
 
       - name: Install GitVersion
-        uses: gittools/actions/gitversion/setup@v3.1.11
+        uses: gittools/actions/gitversion/setup@v4.7.0
         with:
-          versionSpec: 5.x
+          versionSpec: 6.x
 
       - name: Determine Version
         id: gitversion
-        uses: gittools/actions/gitversion/execute@v3.1.11
+        uses: gittools/actions/gitversion/execute@v4.7.0
 
       - name: Display GitVersion outputs
         run: |
@@ -50,6 +89,7 @@ jobs:
         run: |
           V_MINOR="v${{ steps.gitversion.outputs.Major }}.${{ steps.gitversion.outputs.Minor }}"
           echo "minor_tag=$V_MINOR" >> "$GITHUB_OUTPUT"
+          echo "release_tag=v${{ steps.gitversion.outputs.SemVer }}" >> "$GITHUB_OUTPUT"
           echo "docker_tag=${{ env.DOCKER_NAMESPACE }}/${{ env.DOCKER_IMAGE_NAME }}:$V_MINOR" >> "$GITHUB_OUTPUT"
           echo "docker_tag_latest=${{ env.DOCKER_NAMESPACE }}/${{ env.DOCKER_IMAGE_NAME }}:latest" >> "$GITHUB_OUTPUT"
           # ghcr (опционально). Если нужно строго lower-case, раскомментируй нижнюю строку и задай OWNER вручную
@@ -71,6 +111,8 @@ jobs:
           tags: |
             ${{ steps.tags.outputs.docker_tag }}
             ${{ steps.tags.outputs.docker_tag_latest }}
+            ${{ env.DOCKER_NAMESPACE }}/${{ env.DOCKER_IMAGE_NAME }}:v${{ steps.gitversion.outputs.SemVer }}
+            ${{ env.DOCKER_NAMESPACE }}/${{ env.DOCKER_IMAGE_NAME }}:sha-${{ github.sha }}
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -88,13 +130,16 @@ jobs:
           tags: |
             ${{ steps.tags.outputs.ghcr_tag }}
             ${{ steps.tags.outputs.ghcr_tag_latest }}
+            ghcr.io/${{ github.repository_owner }}/${{ env.DOCKER_IMAGE_NAME }}:v${{ steps.gitversion.outputs.SemVer }}
+            ghcr.io/${{ github.repository_owner }}/${{ env.DOCKER_IMAGE_NAME }}:sha-${{ github.sha }}
 
       - name: Create GitHub Release (only if version advanced)
         if: ${{ steps.gitversion.outputs.CommitsSinceVersionSource > 0 }}
         uses: ncipollo/release-action@v1
         with:
-          tag: ${{ steps.tags.outputs.minor_tag }}
-          name: Release ${{ steps.tags.outputs.minor_tag }}
+          tag: ${{ steps.tags.outputs.release_tag }}
+          name: Release ${{ steps.tags.outputs.release_tag }}
+          skipIfReleaseExists: true
           draft: false
           prerelease: false
           token: ${{ github.token }}

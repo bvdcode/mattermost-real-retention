@@ -1,23 +1,28 @@
-﻿using Mattermost.RealRetention.Models;
+using Mattermost.RealRetention.Models;
 
-namespace Mattermost.RealRetention.Services
+namespace Mattermost.RealRetention.Services;
+
+public sealed class ReportService
 {
-    public class ReportService
+    public const int HistoryLimit = 10;
+    private readonly Queue<RetentionReport> reports = new();
+    private readonly object gate = new();
+
+    // Only finished reports are published, so HTTP serialization never races the job.
+    public void AddReport(RetentionReport report)
     {
-        private readonly IList<RetentionReport> _reports = [];
-
-        public void AddReport(RetentionReport report)
+        ArgumentNullException.ThrowIfNull(report);
+        lock (gate)
         {
-            if (report == null)
-            {
-                throw new ArgumentNullException(nameof(report), "Report cannot be null.");
-            }
-            _reports.Add(report);
+            reports.Enqueue(report);
+            while (reports.Count > HistoryLimit)
+                reports.Dequeue();
         }
+    }
 
-        public IEnumerable<RetentionReport> GetReports()
-        {
-            return _reports.AsReadOnly();
-        }
+    public IReadOnlyList<RetentionReport> GetReports()
+    {
+        lock (gate)
+            return reports.ToArray();
     }
 }

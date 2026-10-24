@@ -5,6 +5,8 @@ VisualStudioVersion = 17.14.36202.13
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mattermost.RealRetention", "Mattermost.RealRetention.csproj", "{A0CA3740-9FB9-4EA5-98D7-23C6EBFC1106}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mattermost.RealRetention.Tests", "..\Tests\Mattermost.RealRetention.Tests.csproj", "{B002979E-A19D-4F70-9C61-CE4B25ECD180}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{A0CA3740-9FB9-4EA5-98D7-23C6EBFC1106}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A0CA3740-9FB9-4EA5-98D7-23C6EBFC1106}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A0CA3740-9FB9-4EA5-98D7-23C6EBFC1106}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B002979E-A19D-4F70-9C61-CE4B25ECD180}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B002979E-A19D-4F70-9C61-CE4B25ECD180}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B002979E-A19D-4F70-9C61-CE4B25ECD180}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B002979E-A19D-4F70-9C61-CE4B25ECD180}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
