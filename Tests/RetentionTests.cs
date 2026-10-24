@@ -17,6 +17,7 @@ public sealed class RetentionTests : IAsyncLifetime
     private readonly string directory = Path.Combine(Path.GetTempPath(), "retention-test-" + Guid.NewGuid().ToString("N"));
     private string connectionString = null!;
     private readonly ReportService reports = new();
+    private readonly RecordingNotifier notifier = new();
 
     public async Task InitializeAsync()
     {
@@ -59,6 +60,8 @@ public sealed class RetentionTests : IAsyncLifetime
         Assert.Equal(3, report.DeletedFilesCount);
         Assert.Equal(1, report.DeletedRecordsCount);
         Assert.Equal("Completed", report.Status);
+        Assert.Same(report, Assert.Single(notifier.Reports));
+        Assert.NotNull(report.CompletedAt);
         Assert.False(File.Exists(Path.Combine(directory, original)));
         Assert.False(File.Exists(Path.Combine(directory, thumbnail)));
         Assert.False(File.Exists(Path.Combine(directory, preview)));
@@ -259,6 +262,7 @@ public sealed class RetentionTests : IAsyncLifetime
         Assert.False(File.Exists(Path.Combine(directory, path)));
         Assert.Equal(1, await db.Files.CountAsync());
         Assert.Equal("Failed", Assert.Single(reports.GetReports()).Status);
+        Assert.Equal("Failed", Assert.Single(notifier.Reports).Status);
         await SqlAsync("DROP TRIGGER reject_delete ON fileinfo");
         var retry = await Service(db).RunAsync();
         Assert.Equal(1, retry.MissingFilesCount);
@@ -314,11 +318,12 @@ public sealed class RetentionTests : IAsyncLifetime
         var service = new RetentionService(db, Options.Create(new RetentionOptions
         {
             DryRun = false, DataDirectory = directory, DelayBetweenFilesInMs = 10000
-        }), reports, NullLogger<RetentionService>.Instance);
+        }), reports, notifier, NullLogger<RetentionService>.Instance);
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.RunAsync(cancellation.Token));
         Assert.True(File.Exists(Path.Combine(directory, path)));
         Assert.Equal(1, await db.Files.CountAsync());
         Assert.Equal("Cancelled", Assert.Single(reports.GetReports()).Status);
+        Assert.Equal("Cancelled", Assert.Single(notifier.Reports).Status);
     }
 
     [Fact]
@@ -352,7 +357,7 @@ public sealed class RetentionTests : IAsyncLifetime
 
     private RetentionService Service(AppDbContext db, bool dryRun = false, int batchSize = 2) => new(db,
         Options.Create(new RetentionOptions { DataDirectory = directory, DryRun = dryRun, BatchSize = batchSize }),
-        reports, NullLogger<RetentionService>.Instance);
+        reports, notifier, NullLogger<RetentionService>.Instance);
 
     private string MakeFile(string name)
     {
@@ -376,6 +381,17 @@ public sealed class RetentionTests : IAsyncLifetime
         foreach (var value in parameters)
             command.Parameters.Add(new NpgsqlParameter { Value = value });
         await command.ExecuteNonQueryAsync();
+    }
+
+    private sealed class RecordingNotifier : IRetentionNotifier
+    {
+        public System.Collections.Concurrent.ConcurrentQueue<RetentionReport> Reports { get; } = new();
+
+        public Task NotifyAsync(RetentionReport report, CancellationToken cancellationToken = default)
+        {
+            Reports.Enqueue(report);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class LockQuerySignal : DbCommandInterceptor

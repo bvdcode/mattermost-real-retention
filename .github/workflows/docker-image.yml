@@ -136,6 +136,7 @@ jobs:
           tag: ${{ steps.tags.outputs.release_tag }}
           name: Release ${{ steps.tags.outputs.release_tag }}
           skipIfReleaseExists: true
+          makeLatest: true
           draft: false
           prerelease: false
           token: ${{ github.token }}

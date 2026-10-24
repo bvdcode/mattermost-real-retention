@@ -5,6 +5,7 @@ namespace Mattermost.RealRetention;
 public sealed class RetentionOptions
 {
     public bool DryRun { get; set; } = true;
+    public string? WebhookUrl { get; set; }
 
     [Required]
     public string DataDirectory { get; set; } = "/mattermost/data";

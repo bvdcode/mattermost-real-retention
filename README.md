@@ -32,12 +32,14 @@ services:
     image: bvdcode/mattermost-real-retention:latest
     restart: unless-stopped
     environment:
-      PostgresHost: postgres
-      PostgresPort: 5432
-      PostgresUser: mattermost
-      PostgresPassword: ${MATTERMOST_DB_PASSWORD}
-      PostgresDatabase: mattermost
-      DryRun: "true"
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: mattermost
+      DATABASE_PASSWORD: ${MM_DATABASE_PASSWORD}
+      DATABASE_NAME: mattermost
+      DRY_RUN: "true"
+      # Optional incoming webhook; keep the real URL in your environment.
+      WEBHOOK_URL: ${MM_RETENTION_WEBHOOK_URL:-}
     volumes:
       - /path/to/mattermost/data:/mattermost/data:rw
     # Optional. No published port or reverse proxy is needed for scheduled cleanup.
@@ -50,7 +52,7 @@ docker compose up -d
 docker compose logs -f mattermost-real-retention
 ```
 
-Check the dry-run summary and ensure that the mounted directory belongs to this database. To enable deletion, change `DryRun` to `"false"` and recreate the container with `docker compose up -d`. Keep backups before enabling permanent deletion.
+Check the dry-run summary and ensure that the mounted directory belongs to this database. To enable deletion, change `DRY_RUN` to `"false"` and recreate the container with `docker compose up -d`. Keep backups before enabling permanent deletion.
 
 The database account needs `SELECT` on `posts` and `fileinfo`, `DELETE` on `fileinfo`, and the `UPDATE` privileges PostgreSQL requires for row locking. The service does not issue `UPDATE` statements, create tables, run migrations, or alter Mattermost's schema. The filesystem account needs permission to read files and remove entries from their parent directories.
 
@@ -58,21 +60,22 @@ Only PostgreSQL and a local filestore are supported. S3/object storage is not su
 
 ## Configuration
 
-Existing `Postgres*`, `DryRun` and `DelayBetweenFilesInMs` environment variables continue to work.
+Use the environment variables below. Legacy `PostgresHost`, `PostgresPort`, `PostgresUser`, `PostgresPassword`, `PostgresDatabase`, `DryRun`, `DataDirectory`, `BatchSize` and `DelayBetweenFilesInMs` settings remain supported. The new names take precedence when both are set.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `PostgresHost` | `postgres-server` | PostgreSQL host |
-| `PostgresPort` | `5432` | PostgreSQL port |
-| `PostgresUser` | `mattermost_server` | PostgreSQL username |
-| `PostgresPassword` | unset | PostgreSQL password |
-| `PostgresDatabase` | `mattermost` | Mattermost database |
-| `DryRun` | `true` | Report intended deletions without changing files or database rows |
-| `DataDirectory` | `/mattermost/data` | Local filestore mount |
-| `BatchSize` | `200` | Maximum candidate IDs loaded at once; range 1–5000 |
-| `DelayBetweenFilesInMs` | `0` | Optional delay per attachment path; range 0–60000 |
+| `DATABASE_HOST` | `postgres-server` | PostgreSQL host |
+| `DATABASE_PORT` | `5432` | PostgreSQL port |
+| `DATABASE_USER` | `mattermost_server` | PostgreSQL username |
+| `DATABASE_PASSWORD` | unset | PostgreSQL password |
+| `DATABASE_NAME` | `mattermost` | Mattermost database |
+| `DRY_RUN` | `true` | Report intended deletions without changing files or database rows |
+| `WEBHOOK_URL` | unset | Optional Mattermost incoming webhook for run summaries |
+| `DATA_DIRECTORY` | `/mattermost/data` | Local filestore mount |
+| `BATCH_SIZE` | `200` | Maximum candidate IDs loaded at once; range 1–5000 |
+| `DELAY_BETWEEN_FILES_MS` | `0` | Optional delay per attachment path; range 0–60000 |
 
-`DatabaseSettings:Host`, `Port`, `Username`, `Password` and `Database` remain available in ASP.NET configuration as fallbacks for the corresponding `Postgres*` settings.
+`DatabaseSettings:Host`, `Port`, `Username`, `Password` and `Database` remain available in ASP.NET configuration as fallbacks for the corresponding database settings.
 
 ## Memory and failure handling
 
@@ -85,12 +88,22 @@ Existing `Postgres*`, `DryRun` and `DelayBetweenFilesInMs` environment variables
 - Quartz prevents overlapping executions of the job in one service instance. Database row locks also serialize access to the same attachment across instances. A single container is recommended.
 - Reports retain the last 10 finished runs and at most 100 file details per run. Aggregate counters still include every processed file. Reports are lost on restart.
 
+## Mattermost notifications
+
+Set `WEBHOOK_URL` to a Mattermost incoming webhook to receive a summary after each run, including runs with nothing to delete, dry-runs, failures and cancellations. Leave it unset or empty to disable notifications.
+
+The message includes the run status, checked attachment records and files, deleted files and database records, reclaimed bytes, missing files, skipped/failed records and duration. Dry-run messages explicitly say that nothing was deleted and show the potential reclaimable space separately. Counts cover deletion candidates, not a full inventory of the filestore.
+
+Only the `text` field is sent. The destination channel, bot display name and icon come from the webhook settings in Mattermost; the service does not override them. **Lock to this channel** can remain enabled.
+
+Notification failures do not fail or undo cleanup. HTTP requests time out after 10 seconds and are not automatically retried, to avoid duplicate notifications. Redirects are not followed. Only aggregate results are sent; file paths, exception details, database settings and the webhook URL are excluded. HTTP request URL logging is disabled for this client.
+
 ## Optional HTTP API
 
 The container listens on port 8080. Scheduled cleanup does not require publishing that port. The API has no authentication; publish it only where manual access is intended.
 
 - `GET /status` returns the last 10 **finished** reports, oldest first. While the first run is executing it returns `[]`; use container logs for progress.
-- `POST /trigger` queues another execution. `GET /trigger` remains supported for compatibility. Requests respect `DryRun` and do not run concurrently within the same scheduler.
+- `POST /trigger` queues another execution. `GET /trigger` remains supported for compatibility. Requests respect `DRY_RUN` and do not run concurrently within the same scheduler.
 
 ```bash
 curl http://localhost:8080/status
@@ -110,7 +123,7 @@ dotnet build Sources/Mattermost.RealRetention.sln --configuration Release
 dotnet run --project Sources/Mattermost.RealRetention.csproj
 ```
 
-For local development the launch profile listens on `http://localhost:5277`. Override `DataDirectory` and the PostgreSQL settings before running. The job starts automatically, including in development.
+For local development the launch profile listens on `http://localhost:5277`. Override `DATA_DIRECTORY` and the PostgreSQL settings before running. The job starts automatically, including in development.
 
 Tests use a real, **isolated test PostgreSQL database** and temporary files. Each test creates its own schema; do not point tests at the Mattermost database. Run filesystem permission tests as a non-root Linux user.
 
@@ -126,7 +139,7 @@ dotnet test Sources/Mattermost.RealRetention.sln --configuration Release
 docker stop retention-test-db
 ```
 
-Coverage includes a database with over a million active posts, batched cleanup, active/unattached/missing-post preservation, dry-run, previews, repeated runs, shared paths, unsafe paths, permission failures, cancellation, concurrent execution, post restoration while waiting for a lock, recovery after a database failure, and bounded report storage.
+Coverage includes a database with over a million active posts, batched cleanup, active/unattached/missing-post preservation, dry-run, previews, repeated runs, shared paths, unsafe paths, permission failures, cancellation, concurrent execution, post restoration while waiting for a lock, recovery after a database failure, bounded report storage, environment-variable compatibility, webhook payloads and notification failures/timeouts.
 
 Build the container with:
 

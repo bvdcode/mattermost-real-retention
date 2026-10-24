@@ -10,6 +10,7 @@ public sealed class RetentionService(
     AppDbContext database,
     IOptions<RetentionOptions> options,
     ReportService reports,
+    IRetentionNotifier notifier,
     ILogger<RetentionService> logger)
 {
     public async Task<RetentionReport> RunAsync(CancellationToken cancellationToken = default)
@@ -87,6 +88,8 @@ public sealed class RetentionService(
         {
             report.CompletedAt = DateTime.UtcNow;
             reports.AddReport(report);
+            // Give the bounded notification request a chance to report cancellation too.
+            await notifier.NotifyAsync(report);
         }
     }
 

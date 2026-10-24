@@ -5,9 +5,10 @@ services:
     volumes:
       - /storage/mattermost/data:/mattermost/data
     environment:
-      - PostgresHost=postgres
-      - PostgresPort=5432
-      - PostgresUser=mattermost
-      - PostgresPassword=changeme
-      - PostgresDatabase=mattermost
-      - DryRun=true
+      - DATABASE_HOST=${MM_DATABASE_HOST:-postgres}
+      - DATABASE_PORT=${MM_DATABASE_PORT:-5432}
+      - DATABASE_USER=${MM_DATABASE_USER:-mattermost}
+      - DATABASE_PASSWORD=${MM_DATABASE_PASSWORD}
+      - DATABASE_NAME=${MM_DATABASE_NAME:-mattermost}
+      - DRY_RUN=${DRY_RUN:-true}
+      - WEBHOOK_URL=${MM_RETENTION_WEBHOOK_URL:-}
