@@ -138,7 +138,7 @@ docker build -t mattermost-real-retention ./Sources
 
 GitHub Actions builds and tests against PostgreSQL before publishing images. Pull requests run tests without publishing. Changes to source, tests, package configuration or the workflow trigger CI; publication is limited to `main` and manual runs on `main`.
 
-Images are published to Docker Hub (`bvdcode/mattermost-real-retention`) and GHCR (`ghcr.io/bvdcode/mattermost-real-retention`) with a full version tag, a major/minor alias, `latest`, and `sha-<full commit SHA>`. Use a full commit tag when pinning an exact build.
+GitHub releases and versioned Docker tags use `Major.Minor.Patch` (for example, `2.0.0`), without a `v` prefix or prerelease suffix. Images are published to Docker Hub (`bvdcode/mattermost-real-retention`) and GHCR (`ghcr.io/bvdcode/mattermost-real-retention`) with that version, `latest`, and `sha-<full commit SHA>`. Use a full commit tag when pinning an exact build.
 
 ## License
 

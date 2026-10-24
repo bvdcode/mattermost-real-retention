@@ -79,21 +79,19 @@ jobs:
 
       - name: Display GitVersion outputs
         run: |
-          echo "SemVer: ${{ steps.gitversion.outputs.SemVer }}"
+          echo "Version: ${{ steps.gitversion.outputs.MajorMinorPatch }}"
           echo "CommitsSinceVersionSource: ${{ steps.gitversion.outputs.CommitsSinceVersionSource }}"
-          echo "Major.Minor: v${{ steps.gitversion.outputs.Major }}.${{ steps.gitversion.outputs.Minor }}"
 
       - name: Compose tags
         id: tags
         shell: bash
         run: |
-          V_MINOR="v${{ steps.gitversion.outputs.Major }}.${{ steps.gitversion.outputs.Minor }}"
-          echo "minor_tag=$V_MINOR" >> "$GITHUB_OUTPUT"
-          echo "release_tag=v${{ steps.gitversion.outputs.SemVer }}" >> "$GITHUB_OUTPUT"
-          echo "docker_tag=${{ env.DOCKER_NAMESPACE }}/${{ env.DOCKER_IMAGE_NAME }}:$V_MINOR" >> "$GITHUB_OUTPUT"
+          VERSION="${{ steps.gitversion.outputs.MajorMinorPatch }}"
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid release version: $VERSION" >&2; exit 1; }
+          echo "release_tag=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "docker_tag=${{ env.DOCKER_NAMESPACE }}/${{ env.DOCKER_IMAGE_NAME }}:$VERSION" >> "$GITHUB_OUTPUT"
           echo "docker_tag_latest=${{ env.DOCKER_NAMESPACE }}/${{ env.DOCKER_IMAGE_NAME }}:latest" >> "$GITHUB_OUTPUT"
-          # ghcr (опционально). Если нужно строго lower-case, раскомментируй нижнюю строку и задай OWNER вручную
-          echo "ghcr_tag=ghcr.io/${{ github.repository_owner }}/${{ env.DOCKER_IMAGE_NAME }}:$V_MINOR" >> "$GITHUB_OUTPUT"
+          echo "ghcr_tag=ghcr.io/${{ github.repository_owner }}/${{ env.DOCKER_IMAGE_NAME }}:$VERSION" >> "$GITHUB_OUTPUT"
           echo "ghcr_tag_latest=ghcr.io/${{ github.repository_owner }}/${{ env.DOCKER_IMAGE_NAME }}:latest" >> "$GITHUB_OUTPUT"
 
       - name: Login to Docker Hub
@@ -102,7 +100,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build & push to Docker Hub (vX.Y + latest)
+      - name: Build & push to Docker Hub (X.Y.Z + latest)
         uses: docker/build-push-action@v6
         with:
           context: ${{ env.CONTEXT_DIR }}
@@ -111,7 +109,6 @@ jobs:
           tags: |
             ${{ steps.tags.outputs.docker_tag }}
             ${{ steps.tags.outputs.docker_tag_latest }}
-            ${{ env.DOCKER_NAMESPACE }}/${{ env.DOCKER_IMAGE_NAME }}:v${{ steps.gitversion.outputs.SemVer }}
             ${{ env.DOCKER_NAMESPACE }}/${{ env.DOCKER_IMAGE_NAME }}:sha-${{ github.sha }}
 
       - name: Login to GHCR
@@ -121,7 +118,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & push to GHCR (vX.Y + latest)
+      - name: Build & push to GHCR (X.Y.Z + latest)
         uses: docker/build-push-action@v6
         with:
           context: ${{ env.CONTEXT_DIR }}
@@ -130,7 +127,6 @@ jobs:
           tags: |
             ${{ steps.tags.outputs.ghcr_tag }}
             ${{ steps.tags.outputs.ghcr_tag_latest }}
-            ghcr.io/${{ github.repository_owner }}/${{ env.DOCKER_IMAGE_NAME }}:v${{ steps.gitversion.outputs.SemVer }}
             ghcr.io/${{ github.repository_owner }}/${{ env.DOCKER_IMAGE_NAME }}:sha-${{ github.sha }}
 
       - name: Create GitHub Release (only if version advanced)
