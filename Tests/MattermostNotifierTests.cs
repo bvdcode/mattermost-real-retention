@@ -11,6 +11,47 @@ namespace Mattermost.RealRetention.Tests;
 public sealed class MattermostNotifierTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Successful_empty_run_does_not_send(bool dryRun)
+    {
+        using var handler = new RecordingHandler();
+        using var client = new HttpClient(handler);
+        await Create(client, new RecordingLogger()).NotifyAsync(new RetentionReport
+        {
+            Status = "Completed", DryRun = dryRun
+        });
+        Assert.Equal(0, handler.RequestCount);
+    }
+
+    [Theory]
+    [InlineData("Failed")]
+    [InlineData("CompletedWithErrors")]
+    [InlineData("Cancelled")]
+    public async Task Unsuccessful_run_still_sends_with_zero_counters(string status)
+    {
+        using var handler = new RecordingHandler();
+        using var client = new HttpClient(handler);
+        await Create(client, new RecordingLogger()).NotifyAsync(new RetentionReport { Status = status });
+        Assert.Equal(1, handler.RequestCount);
+    }
+
+    [Theory]
+    [InlineData(1, 0)]
+    [InlineData(0, 1)]
+    public async Task Metadata_cleanup_or_skipped_candidates_still_send(long deletedRecords, long skippedRecords)
+    {
+        using var handler = new RecordingHandler();
+        using var client = new HttpClient(handler);
+        await Create(client, new RecordingLogger()).NotifyAsync(new RetentionReport
+        {
+            Status = "Completed", CandidateRecordsCount = 1,
+            DeletedRecordsCount = deletedRecords, SkippedRecordsCount = skippedRecords
+        });
+        Assert.Equal(1, handler.RequestCount);
+    }
+
+    [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData(" ")]

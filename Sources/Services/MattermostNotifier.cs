@@ -10,6 +10,12 @@ public sealed class MattermostNotifier(HttpClient client, IOptions<RetentionOpti
 {
     public async Task NotifyAsync(RetentionReport report, CancellationToken cancellationToken = default)
     {
+        // Successful empty runs remain available in logs and /status without notifying the channel.
+        if (report.Status == "Completed" && report.CandidateRecordsCount == 0 &&
+            report.ProcessedFilesCount == 0 && report.DeletedRecordsCount == 0 &&
+            report.SkippedRecordsCount == 0 && report.FailedRecordsCount == 0 && string.IsNullOrEmpty(report.Error))
+            return;
+
         var url = options.Value.WebhookUrl;
         if (string.IsNullOrWhiteSpace(url))
             return;

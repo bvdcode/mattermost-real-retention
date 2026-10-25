@@ -90,7 +90,7 @@ Use the environment variables below. Legacy `PostgresHost`, `PostgresPort`, `Pos
 
 ## Mattermost notifications
 
-Set `WEBHOOK_URL` to a Mattermost incoming webhook to receive a summary after each run, including runs with nothing to delete, dry-runs, failures and cancellations. Leave it unset or empty to disable notifications.
+Set `WEBHOOK_URL` to a Mattermost incoming webhook to receive summaries when cleanup finds attachment candidates, including dry-runs. Successful runs with nothing to process do not send a notification; their results remain in container logs and `/status`. Failures and cancellations are reported even when all counters are zero. Leave the webhook unset or empty to disable notifications.
 
 The message includes the run status, checked attachment records and files, deleted files and database records, reclaimed bytes, missing files, skipped/failed records and duration. Dry-run messages explicitly say that nothing was deleted and show the potential reclaimable space separately. Counts cover deletion candidates, not a full inventory of the filestore.
 
